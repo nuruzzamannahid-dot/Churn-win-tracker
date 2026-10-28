@@ -1,0 +1,1229 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Churn Win Tracker</title>
+<meta name="description" content="Churn win-back tracker for Ahmed Asif Rashid and Nuruzzaman Nahid">
+<style>
+  :root{
+    --ink:#0F172A; --muted:#64748B; --soft:#94A3B8;
+    --line:#E6EAF1; --bg:#F5F7FB; --card:#FFFFFF;
+    --green:#0E9F6E; --green-soft:#E6F6EF;
+    --blue:#2563EB; --blue-soft:#E8EFFD;
+    --amber:#B45309; --amber-soft:#FEF3C7;
+    --red:#DC2626; --red-soft:#FEE2E2;
+    --slate:#475569; --slate-soft:#EEF2F7;
+    --violet:#7C3AED; --violet-soft:#F1EAFE;
+    --radius:14px;
+    --shadow:0 1px 2px rgba(15,23,42,.04), 0 8px 24px -12px rgba(15,23,42,.12);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,
+      "Noto Sans Bengali","Nirmala UI","Vrinda","Shonar Bangla","SolaimanLipi","Kalpurush",
+      "Noto Sans",sans-serif;
+    background:var(--bg); color:var(--ink); font-size:14px; line-height:1.45;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1360px;margin:0 auto;padding:0 20px 64px}
+
+  /* ---------- top bar ---------- */
+  .topbar{
+    background:linear-gradient(120deg,#0F172A 0%,#16294a 55%,#0d3b34 100%);
+    color:#fff; padding:22px 0 26px; margin-bottom:-34px;
+  }
+  .topbar .wrap{padding-bottom:0}
+  .toprow{display:flex;align-items:flex-start;justify-content:space-between;gap:20px;flex-wrap:wrap}
+  .brand{display:flex;align-items:center;gap:13px}
+  .logo{
+    width:42px;height:42px;border-radius:12px;flex:none;
+    background:linear-gradient(140deg,#10B981,#0E9F6E);display:grid;place-items:center;
+    box-shadow:0 6px 18px -6px rgba(16,185,129,.7);
+  }
+  .logo svg{width:23px;height:23px}
+  h1{font-size:21px;font-weight:700;margin:0;letter-spacing:-.2px}
+  .sub{color:#A9B7CC;font-size:12.5px;margin-top:2px}
+  .sub b{color:#D7E1F0;font-weight:600}
+  .actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .whoami{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.09);
+    border:1px solid rgba(255,255,255,.16);padding:5px 10px 5px 6px;border-radius:10px}
+  .whoami label{font-size:11px;color:#A9B7CC;text-transform:uppercase;letter-spacing:.05em;font-weight:600}
+  .whoami select{
+    background:transparent;border:0;color:#fff;font-size:13px;font-weight:600;
+    font-family:inherit;cursor:pointer;outline:none;padding-right:2px;
+  }
+  .whoami select option{color:#0F172A}
+  .btn{
+    font-family:inherit;font-size:12.5px;font-weight:600;cursor:pointer;
+    border-radius:9px;padding:8px 12px;border:1px solid transparent;
+    display:inline-flex;align-items:center;gap:6px;transition:.15s ease;
+    white-space:nowrap;
+  }
+  .btn svg{width:14px;height:14px}
+  .btn-ghost{background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.18);color:#fff}
+  .btn-ghost:hover{background:rgba(255,255,255,.18)}
+  .btn-line{background:#fff;border-color:var(--line);color:var(--ink)}
+  .btn-line:hover{background:#F8FAFC;border-color:#CBD5E1}
+  .btn-primary{background:#0E9F6E;color:#fff}
+  .btn-primary:hover{background:#0B8A5F}
+  .btn-danger{background:#fff;border-color:#FCA5A5;color:#B91C1C}
+  .btn-danger:hover{background:#FEF2F2}
+
+  /* ---------- kpi ---------- */
+  .kpis{
+    display:grid;grid-template-columns:repeat(6,1fr);gap:12px;
+    margin-top:18px;position:relative;z-index:2;
+  }
+  .kpi{
+    background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+    padding:14px 15px;box-shadow:var(--shadow);
+  }
+  .kpi .lbl{font-size:11px;font-weight:700;letter-spacing:.045em;text-transform:uppercase;color:var(--soft);
+    display:flex;align-items:center;gap:5px}
+  .kpi .val{font-size:26px;font-weight:750;letter-spacing:-.6px;margin-top:6px;line-height:1.1}
+  .kpi .foot{font-size:11.5px;color:var(--muted);margin-top:3px}
+  .kpi.accent{background:linear-gradient(160deg,#0F172A,#17324a);border-color:#17324a;color:#fff}
+  .kpi.accent .lbl{color:#9FB3CC}
+  .kpi.accent .foot{color:#A9B7CC}
+  .dot{width:7px;height:7px;border-radius:50%;display:inline-block}
+
+  /* ---------- layout ---------- */
+  .cards{display:grid;grid-template-columns:1.45fr 1fr;gap:14px;margin-top:14px}
+  .card{
+    background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+    box-shadow:var(--shadow);overflow:hidden;
+  }
+  .card-hd{padding:14px 16px;border-bottom:1px solid var(--line);display:flex;
+    align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+  .card-hd h2{font-size:13.5px;font-weight:700;margin:0;letter-spacing:-.1px}
+  .card-hd .hint{font-size:11.5px;color:var(--soft);font-weight:500}
+  .card-bd{padding:16px}
+
+  /* ---------- KAM board ---------- */
+  .kam{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .kamcard{border:1px solid var(--line);border-radius:12px;padding:14px;background:#FCFDFF}
+  .kamhd{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+  .avatar{width:38px;height:38px;border-radius:11px;display:grid;place-items:center;
+    font-weight:700;font-size:13.5px;color:#fff;flex:none;letter-spacing:.3px}
+  .kamname{font-weight:700;font-size:13.5px;letter-spacing:-.1px}
+  .kamrole{font-size:11px;color:var(--soft);font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+  .kamstats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:11px}
+  .kamstat{background:#fff;border:1px solid var(--line);border-radius:9px;padding:7px 8px}
+  .kamstat .n{font-size:16.5px;font-weight:750;letter-spacing:-.4px;line-height:1.15}
+  .kamstat .k{font-size:10px;color:var(--soft);font-weight:700;text-transform:uppercase;letter-spacing:.04em}
+  .bar{height:7px;border-radius:99px;background:#EDF1F7;overflow:hidden;display:flex}
+  .bar i{display:block;height:100%}
+  .barlbl{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-top:6px;font-weight:600}
+  .teamline{margin-top:14px;padding-top:14px;border-top:1px dashed var(--line)}
+  .teamline .t{display:flex;justify-content:space-between;font-size:12px;font-weight:700;margin-bottom:7px}
+  .teamline .t span:last-child{color:var(--muted);font-weight:600}
+
+  /* ---------- charts ---------- */
+  .donutwrap{display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+  .donut{position:relative;width:150px;height:150px;flex:none}
+  .donut svg{transform:rotate(-90deg);display:block}
+  .donut .mid{position:absolute;inset:0;display:grid;place-content:center;text-align:center}
+  .donut .mid .big{font-size:23px;font-weight:750;letter-spacing:-.6px;line-height:1}
+  .donut .mid .sm{font-size:10.5px;color:var(--soft);font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-top:3px}
+  .legend{flex:1;min-width:190px;display:grid;gap:5px}
+  .lg{display:flex;align-items:center;gap:8px;font-size:12px}
+  .lg .sw{width:9px;height:9px;border-radius:3px;flex:none}
+  .lg .nm{color:var(--muted);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .lg .vl{font-weight:700;font-variant-numeric:tabular-nums}
+
+  .splitrow{display:flex;gap:14px;margin-top:16px;padding-top:14px;border-top:1px solid var(--line)}
+  .spl{flex:1}
+  .spl .k{font-size:11px;color:var(--soft);font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px}
+  .spl .v{font-size:13px;font-weight:700}
+  .minibar{height:7px;border-radius:99px;overflow:hidden;display:flex;background:#EDF1F7;margin-top:6px}
+  .minibar i{display:block;height:100%}
+
+  /* ---------- toolbar ---------- */
+  .toolbar{display:flex;gap:8px;align-items:center;padding:12px 16px;
+    border-bottom:1px solid var(--line);flex-wrap:wrap;background:#FBFCFE}
+  .field{position:relative;display:flex;align-items:center}
+  .field svg{position:absolute;left:9px;width:14px;height:14px;color:var(--soft);pointer-events:none}
+  input[type=search],select.tb{
+    font-family:inherit;font-size:12.5px;color:var(--ink);background:#fff;
+    border:1px solid var(--line);border-radius:9px;padding:8px 10px;outline:none;
+    transition:.15s;font-weight:500;
+  }
+  input[type=search]{padding-left:29px;width:250px}
+  input[type=search]:focus,select.tb:focus{border-color:#94A3B8;box-shadow:0 0 0 3px rgba(148,163,184,.16)}
+  select.tb{cursor:pointer;padding-right:26px;appearance:none;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394A3B8' stroke-width='2.5'><path d='M6 9l6 6 6-6'/></svg>");
+    background-repeat:no-repeat;background-position:right 8px center;background-size:12px}
+  .spacer{flex:1}
+  .count{font-size:12px;color:var(--muted);font-weight:600}
+
+  /* ---------- table ---------- */
+  .tscroll{overflow-x:auto}
+  table{width:100%;border-collapse:separate;border-spacing:0;font-size:12.5px}
+  thead th{
+    text-align:left;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;
+    color:var(--soft);background:#FBFCFE;padding:9px 12px;border-bottom:1px solid var(--line);
+    white-space:nowrap;position:sticky;top:0;z-index:1;
+  }
+  tbody td{padding:9px 12px;border-bottom:1px solid #F1F4F9;vertical-align:middle}
+  tbody tr:last-child td{border-bottom:0}
+  tbody tr:hover{background:#FAFBFE}
+  td.biz{max-width:260px}
+  .bname{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Noto Sans Bengali","Nirmala UI","Vrinda","SolaimanLipi","Kalpurush",sans-serif;font-weight:600;color:var(--ink);display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .bid{font-size:11px;color:var(--soft);font-variant-numeric:tabular-nums}
+  .pill{display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:99px;
+    font-size:11px;font-weight:700;white-space:nowrap}
+  .phone{font-variant-numeric:tabular-nums;font-weight:600;color:var(--ink);text-decoration:none;white-space:nowrap}
+  .phone:hover{color:var(--blue);text-decoration:underline}
+  .copy{background:none;border:0;cursor:pointer;color:var(--soft);padding:2px;border-radius:5px;line-height:0}
+  .copy:hover{color:var(--blue);background:var(--blue-soft)}
+  .copy svg{width:13px;height:13px}
+  select.st{font-family:inherit;font-size:11.5px;font-weight:700;border-radius:99px;
+    padding:4px 22px 4px 9px;cursor:pointer;border:1px solid transparent;appearance:none;outline:none;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2364748B' stroke-width='3'><path d='M6 9l6 6 6-6'/></svg>");
+    background-repeat:no-repeat;background-position:right 6px center;background-size:10px}
+  select.st:focus{box-shadow:0 0 0 3px rgba(148,163,184,.2)}
+  select.kam{font-family:inherit;font-size:11.5px;font-weight:600;border-radius:8px;padding:4px 6px;
+    border:1px solid var(--line);background:#fff;cursor:pointer;outline:none;max-width:112px}
+  input.note{width:100%;min-width:120px;font-family:inherit;font-size:12px;border:1px solid transparent;
+    border-radius:7px;padding:5px 7px;background:transparent;outline:none;color:var(--ink)}
+  input.note:hover{border-color:var(--line);background:#fff}
+  input.note:focus{border-color:#94A3B8;background:#fff;box-shadow:0 0 0 3px rgba(148,163,184,.14)}
+  input.note::placeholder{color:#B6C1D0}
+  .when{font-size:11px;color:var(--soft);white-space:nowrap}
+  .winrow{position:relative}
+  .winrow::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--green)}
+
+  .pager{display:flex;align-items:center;justify-content:space-between;gap:10px;
+    padding:11px 16px;border-top:1px solid var(--line);background:#FBFCFE;flex-wrap:wrap}
+  .pager .info{font-size:12px;color:var(--muted);font-weight:600}
+  .pager .ctrl{display:flex;gap:6px;align-items:center}
+  .pg{font-family:inherit;font-size:12.5px;font-weight:600;border:1px solid var(--line);background:#fff;
+    border-radius:8px;padding:6px 11px;cursor:pointer;color:var(--ink)}
+  .pg:hover:not(:disabled){background:#F1F5F9}
+  .pg:disabled{opacity:.45;cursor:not-allowed}
+  .empty{padding:44px 20px;text-align:center;color:var(--soft);font-weight:600}
+
+  .foot{margin-top:16px;font-size:11.5px;color:var(--soft);text-align:center;line-height:1.7}
+  .foot b{color:var(--muted)}
+
+  /* ---------- sync ---------- */
+  .syncpill{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:700;
+    padding:6px 10px;border-radius:99px;background:rgba(255,255,255,.1);
+    border:1px solid rgba(255,255,255,.18);color:#fff;cursor:pointer;white-space:nowrap;
+    font-family:inherit;transition:.15s}
+  .syncpill:hover{background:rgba(255,255,255,.18)}
+  .syncpill .sdot{width:7px;height:7px;border-radius:50%;background:#94A3B8;flex:none}
+  .syncpill[data-st="ok"] .sdot{background:#34D399;box-shadow:0 0 0 3px rgba(52,211,153,.22)}
+  .syncpill[data-st="syncing"] .sdot{background:#FBBF24;animation:pulse 1s infinite}
+  .syncpill[data-st="error"] .sdot{background:#F87171;box-shadow:0 0 0 3px rgba(248,113,113,.22)}
+  .syncpill[data-st="queued"] .sdot{background:#FBBF24}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+
+  .modal{position:fixed;inset:0;background:rgba(15,23,42,.55);display:none;
+    align-items:center;justify-content:center;padding:20px;z-index:80;backdrop-filter:blur(2px)}
+  .modal.open{display:flex}
+  .sheet{background:#fff;border-radius:16px;width:100%;max-width:560px;max-height:88vh;overflow:auto;
+    box-shadow:0 24px 60px -20px rgba(15,23,42,.5)}
+  .sheet-hd{padding:18px 20px 14px;border-bottom:1px solid var(--line);display:flex;
+    align-items:center;justify-content:space-between;gap:12px}
+  .sheet-hd h3{margin:0;font-size:15px;font-weight:750;letter-spacing:-.2px}
+  .xbtn{background:none;border:0;cursor:pointer;color:var(--soft);font-size:20px;line-height:1;padding:2px 6px;border-radius:7px}
+  .xbtn:hover{background:#F1F5F9;color:var(--ink)}
+  .sheet-bd{padding:18px 20px}
+  .sheet-bd label{display:block;font-size:11.5px;font-weight:700;text-transform:uppercase;
+    letter-spacing:.045em;color:var(--soft);margin-bottom:6px}
+  .sheet-bd input[type=url],.sheet-bd input[type=text]{width:100%;font-family:inherit;font-size:12.5px;
+    border:1px solid var(--line);border-radius:9px;padding:9px 11px;outline:none;font-weight:500;color:var(--ink)}
+  .sheet-bd input:focus{border-color:#94A3B8;box-shadow:0 0 0 3px rgba(148,163,184,.16)}
+  .hintline{font-size:11.5px;color:var(--muted);margin-top:7px;line-height:1.55}
+  .hintline code{background:#F1F5F9;padding:1px 5px;border-radius:4px;font-size:11px}
+  .rowbtns{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+  .syncstat{font-size:12px;font-weight:600;margin-top:12px;padding:9px 11px;border-radius:9px;
+    background:#F8FAFC;border:1px solid var(--line);color:var(--muted)}
+  .syncstat.ok{background:var(--green-soft);border-color:#BBE9D5;color:#047857}
+  .syncstat.err{background:var(--red-soft);border-color:#FBC5C5;color:#B91C1C}
+  .steps{margin:0;padding-left:18px;font-size:12px;color:var(--muted);line-height:1.75}
+  .steps li{margin-bottom:3px}
+  .steps b{color:var(--ink)}
+
+  .toast{position:fixed;left:50%;bottom:24px;transform:translate(-50%,20px);
+    background:#0F172A;color:#fff;padding:10px 16px;border-radius:10px;font-size:12.5px;font-weight:600;
+    opacity:0;pointer-events:none;transition:.22s;z-index:99;box-shadow:0 10px 30px -8px rgba(15,23,42,.5)}
+  .toast.show{opacity:1;transform:translate(-50%,0)}
+
+  @media (max-width:1180px){
+    .kpis{grid-template-columns:repeat(3,1fr)}
+    .cards{grid-template-columns:1fr}
+  }
+  @media (max-width:720px){
+    .kpis{grid-template-columns:repeat(2,1fr)}
+    .kam{grid-template-columns:1fr}
+    input[type=search]{width:100%}
+    .field{flex:1}
+    .topbar{margin-bottom:-24px}
+  }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="wrap">
+    <div class="toprow">
+      <div class="brand">
+        <div class="logo">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 17l6-6 4 4 7-7"/><path d="M14 8h6v6"/>
+          </svg>
+        </div>
+        <div>
+          <h1>Churn Win Tracker</h1>
+          <div class="sub"><b id="subCount">540</b> churned &amp; inactive merchants &middot; win-back calling campaign &middot; KAM: Ahmed Asif Rashid &amp; Nuruzzaman Nahid</div>
+        </div>
+      </div>
+      <div class="actions">
+        <button class="syncpill" id="syncPill" data-st="off" title="Google Sheet sync — click to configure">
+          <span class="sdot"></span><span id="syncPillTxt">Sheet sync off</span>
+        </button>
+        <div class="whoami">
+          <label for="whoSel">Acting as</label>
+          <select id="whoSel"></select>
+        </div>
+        <button class="btn btn-ghost" id="btnExport" title="Download this tracker as CSV">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="M7 11l5 5 5-5"/><path d="M4 21h16"/></svg>
+          Export CSV
+        </button>
+        <button class="btn btn-ghost" id="btnBackup" title="Download a full backup (assignments, statuses, notes)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/></svg>
+          Backup
+        </button>
+        <label class="btn btn-ghost" for="fileIn" style="margin:0">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21V9"/><path d="M7 13l5-5 5 5"/><path d="M4 3h16"/></svg>
+          Restore
+        </label>
+        <input type="file" id="fileIn" accept=".json,application/json" hidden>
+      </div>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <section class="kpis" id="kpis"></section>
+
+  <section class="cards">
+    <div class="card">
+      <div class="card-hd">
+        <h2>KAM performance</h2>
+        <span class="hint">Wins = won back + activated</span>
+      </div>
+      <div class="card-bd">
+        <div class="kam" id="kamBoard"></div>
+        <div class="teamline">
+          <div class="t"><span>Team progress</span><span id="teamProgTxt">0 / 540 contacted</span></div>
+          <div class="bar" id="teamBar"></div>
+          <div class="barlbl"><span id="teamPct">0% complete</span><span id="teamRemain">540 left</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-hd">
+        <h2>Outcome breakdown</h2>
+        <span class="hint" id="todayHint">&mdash;</span>
+      </div>
+      <div class="card-bd">
+        <div class="donutwrap">
+          <div class="donut">
+            <svg width="150" height="150" viewBox="0 0 150 150" id="donut"></svg>
+            <div class="mid"><div class="big" id="donutBig">0%</div><div class="sm">Contacted</div></div>
+          </div>
+          <div class="legend" id="legend"></div>
+        </div>
+        <div class="splitrow">
+          <div class="spl">
+            <div class="k">Churn list</div>
+            <div class="v" id="churnTxt">&mdash;</div>
+            <div class="minibar"><i id="churnBar" style="background:#EF4444"></i></div>
+          </div>
+          <div class="spl">
+            <div class="k">Inactive list</div>
+            <div class="v" id="inactiveTxt">&mdash;</div>
+            <div class="minibar"><i id="inactiveBar" style="background:#F59E0B"></i></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="card" style="margin-top:14px">
+    <div class="toolbar">
+      <div class="field">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+        <input type="search" id="q" placeholder="Search business, phone or ID…" autocomplete="off">
+      </div>
+      <select class="tb" id="fKam"></select>
+      <select class="tb" id="fStatus"></select>
+      <select class="tb" id="fReason">
+        <option value="">All reasons</option>
+        <option value="Churn">Churn only</option>
+        <option value="Inactive">Inactive only</option>
+      </select>
+      <div class="spacer"></div>
+      <span class="count" id="tblCount"></span>
+      <button class="btn btn-line" id="btnClearFilters">Clear filters</button>
+    </div>
+    <div class="tscroll">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:34px">#</th>
+            <th>Business</th>
+            <th>Phone</th>
+            <th>Reason</th>
+            <th>Assigned KAM</th>
+            <th>Outcome</th>
+            <th>Notes</th>
+            <th>Updated</th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+    <div class="pager">
+      <div class="info" id="pgInfo"></div>
+      <div class="ctrl">
+        <button class="pg" id="pgPrev">Prev</button>
+        <span class="info" id="pgNum">1 / 1</span>
+        <button class="pg" id="pgNext">Next</button>
+      </div>
+    </div>
+  </section>
+
+  <div class="foot">
+    Saved automatically in this browser (<b>localStorage</b>). Use <b>Backup</b> on each device and <b>Restore</b> to merge —
+    newest update wins per business. Data source: Hive active-business export of the churn &amp; inactive sheet.
+  </div>
+</div>
+
+<div class="modal" id="syncModal">
+  <div class="sheet">
+    <div class="sheet-hd">
+      <h3>Google Sheet sync</h3>
+      <button class="xbtn" id="syncClose" aria-label="Close">&times;</button>
+    </div>
+    <div class="sheet-bd">
+      <label for="syncUrl">Apps Script web-app URL</label>
+      <input type="url" id="syncUrl" placeholder="https://script.google.com/macros/s/…/exec" spellcheck="false">
+      <div class="hintline">
+        Every outcome, KAM and note change is written straight into
+        <b>Churn &amp; Inactive merchant List</b> (columns E–H), and the dashboard pulls the
+        other KAM's updates back.
+      </div>
+
+      <div class="syncstat" id="syncStat">Not connected — paste the web-app URL above.</div>
+
+      <div class="rowbtns">
+        <button class="btn btn-primary" id="syncSave">Save &amp; connect</button>
+        <button class="btn btn-line" id="syncNow">Sync now</button>
+        <button class="btn btn-line" id="syncPushAll">Push all local</button>
+        <button class="btn btn-danger" id="syncDisconnect">Disconnect</button>
+      </div>
+
+      <div style="margin-top:18px;padding-top:16px;border-top:1px solid var(--line)">
+        <label style="margin-bottom:8px">One-time setup</label>
+        <ol class="steps">
+          <li>Open the sheet → <b>Extensions → Apps Script</b></li>
+          <li>Paste the <code>Code.gs</code> from this project's <code>apps-script/</code> folder</li>
+          <li><b>Deploy → New deployment → Web app</b></li>
+          <li>Execute as <b>Me</b>, Who has access <b>Anyone</b></li>
+          <li>Copy the <code>/exec</code> URL and paste it above</li>
+        </ol>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script id="biz-data" type="application/json">__DATA__</script>
+<script>
+(function(){
+  "use strict";
+
+  /* ============ constants ============ */
+  var KAMS = [
+    { id:"ahmed", name:"Ahmed Asif Rashid",  short:"AA", color:"#2563EB" },
+    { id:"nahid", name:"Nuruzzaman Nahid",   short:"NN", color:"#0E9F6E" }
+  ];
+  var STATUSES = [
+    { id:"pending",       label:"Pending",       fg:"#475569", bg:"#EEF2F7" },
+    { id:"no_answer",     label:"No answer",     fg:"#B45309", bg:"#FEF3C7" },
+    { id:"callback",      label:"Callback",      fg:"#2563EB", bg:"#E8EFFD" },
+    { id:"won_back",      label:"Won back",      fg:"#0E9F6E", bg:"#E6F6EF" },
+    { id:"activated",     label:"Activated",     fg:"#047857", bg:"#D6F2E5" },
+    { id:"not_interested",label:"Not interested",fg:"#DC2626", bg:"#FEE2E2" },
+    { id:"wrong_number",  label:"Wrong number",  fg:"#7C3AED", bg:"#F1EAFE" }
+  ];
+  var WINS = { won_back:1, activated:1 };
+  var S_BY_ID = {}; STATUSES.forEach(function(s){ S_BY_ID[s.id]=s; });
+  var NUMWIN = { won_back:1, activated:1, not_interested:1, wrong_number:1 };
+
+  var RAW = JSON.parse(document.getElementById("biz-data").textContent);
+  var BIZ = RAW.map(function(r){ return { id:String(r[0]), reason:r[1], name:r[2], phone:r[3] }; });
+  var BYID = {}; BIZ.forEach(function(b){ BYID[b.id]=b; });
+
+  var LS_KEY = "cwt.v1";
+  var PER_PAGE = 50;
+
+  /* ============ state ============ */
+  var state = load();
+
+  function defaultAssignments(){
+    // alternate so both KAMs get an even split with a similar Churn/Inactive mix
+    var a = {};
+    BIZ.forEach(function(b,i){ a[b.id] = KAMS[i % 2].id; });
+    return a;
+  }
+  // Guarantee every merchant has a KAM. Without this, an empty or partial
+  // assignment map (e.g. from a restore) would silently dump the whole list
+  // on whichever KAM is first.
+  function ensureAssignments(s){
+    if(!s.assignments || typeof s.assignments !== "object") s.assignments = {};
+    var known = {};
+    KAMS.forEach(function(k){ known[k.id] = 1; });
+    for(var i=0;i<BIZ.length;i++){
+      var id = BIZ[i].id, cur = s.assignments[id];
+      if(!cur || !known[cur]) s.assignments[id] = KAMS[i % KAMS.length].id;
+    }
+    // drop assignments for ids that no longer exist
+    Object.keys(s.assignments).forEach(function(id){
+      if(!BYID[id]) delete s.assignments[id];
+    });
+    return s;
+  }
+  function load(){
+    var base = { v:1, actingAs:KAMS[0].id, assignments:defaultAssignments(), records:{}, log:[] };
+    try{
+      var raw = localStorage.getItem(LS_KEY);
+      if(!raw) return base;
+      var s = JSON.parse(raw);
+      if(!s || s.v !== 1) return base;
+      s.actingAs = s.actingAs || base.actingAs;
+      s.records = s.records || {};
+      s.log = s.log || [];
+      return ensureAssignments(s);
+    }catch(e){ return base; }
+  }
+  var saveTimer = null;
+  function save(){
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(function(){
+      try{ localStorage.setItem(LS_KEY, JSON.stringify(state)); }
+      catch(e){ toast("Could not save — storage full or blocked"); }
+    }, 120);
+  }
+
+  function rec(id){
+    var r = state.records[id];
+    if(!r) { r = state.records[id] = { s:"pending", n:"", t:0 }; }
+    return r;
+  }
+  function statusOf(id){ var r=state.records[id]; return (r && r.s) || "pending"; }
+  function kamOf(id){ return state.assignments[id] || KAMS[0].id; }
+  function isWin(s){ return !!WINS[s]; }
+  function isContacted(s){ return s !== "pending"; }
+
+  /* ============ helpers ============ */
+  function el(id){ return document.getElementById(id); }
+  function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g,function(c){
+    return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]; }); }
+  function fmtPhone(p){ return p || "—"; }
+  function relTime(t){
+    if(!t) return "—";
+    var d = Date.now()-t;
+    if(d < 60000) return "just now";
+    var m = Math.floor(d/60000);
+    if(m < 60) return m+"m ago";
+    var h = Math.floor(m/60);
+    if(h < 24) return h+"h ago";
+    var dd = Math.floor(h/24);
+    if(dd < 7) return dd+"d ago";
+    var dt = new Date(t);
+    return dt.getDate()+" "+["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][dt.getMonth()];
+  }
+  function pct(a,b){ return b ? Math.round(a/b*1000)/10 : 0; }
+  var toastTimer=null;
+  function toast(msg){
+    var t = el("toast"); t.textContent = msg; t.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function(){ t.classList.remove("show"); }, 2100);
+  }
+  function todayKey(){ return new Date().toISOString().slice(0,10); }
+
+  /* ============ derived ============ */
+  function stats(){
+    var out = {
+      total:BIZ.length, churn:0, inactive:0, contacted:0, won:0, pending:0,
+      byStatus:{}, byKam:{}
+    };
+    STATUSES.forEach(function(s){ out.byStatus[s.id]=0; });
+    KAMS.forEach(function(k){
+      out.byKam[k.id] = { assigned:0, contacted:0, won:0, wonBack:0, activated:0,
+                          notInterested:0, noAnswer:0, callback:0, pending:0,
+                          churnTotal:0, churnWon:0, inactiveTotal:0, inactiveWon:0 };
+    });
+    BIZ.forEach(function(b){
+      var s = statusOf(b.id), k = kamOf(b.id);
+      if(b.reason === "Churn") out.churn++; else out.inactive++;
+      out.byStatus[s]++;
+      if(isContacted(s)) out.contacted++;
+      if(isWin(s)) out.won++;
+      if(s === "pending") out.pending++;
+
+      var kk = out.byKam[k]; if(!kk) return;
+      kk.assigned++;
+      if(isContacted(s)) kk.contacted++;
+      if(isWin(s)) kk.won++;
+      if(s==="won_back") kk.wonBack++;
+      if(s==="activated") kk.activated++;
+      if(s==="not_interested") kk.notInterested++;
+      if(s==="no_answer") kk.noAnswer++;
+      if(s==="callback") kk.callback++;
+      if(s==="pending") kk.pending++;
+      if(b.reason === "Churn"){ kk.churnTotal++; if(isWin(s)) kk.churnWon++; }
+      else { kk.inactiveTotal++; if(isWin(s)) kk.inactiveWon++; }
+    });
+    return out;
+  }
+  function todayStats(){
+    var d = todayKey(), contacted=0, wins=0;
+    state.log.forEach(function(l){
+      if((l.t||"").slice(0,10) !== d) return;
+      if(l.to && isContacted(l.to)) contacted++;
+      if(l.to && isWin(l.to)) wins++;
+    });
+    return { contacted:contacted, wins:wins };
+  }
+
+  /* ============ render: KPI ============ */
+  function renderKPIs(){
+    var t = stats(), td = todayStats();
+    var kpis = [
+      { lbl:"Total merchants", val:t.total, foot:t.churn+" churn · "+t.inactive+" inactive" },
+      { lbl:"Contacted", val:t.contacted, foot:pct(t.contacted,t.total)+"% of list",
+        dot:"#2563EB" },
+      { lbl:"Won back", val:t.byStatus.won_back || 0, foot:"re-engaged churn" },
+      { lbl:"Activated", val:t.byStatus.activated || 0, foot:"inactive → active" },
+      { lbl:"Win rate", val:pct(t.won,t.contacted)+"%",
+        foot:t.won+" won of "+t.contacted+" contacted", accent:true },
+      { lbl:"Still pending", val:t.pending, foot:"no call logged yet" }
+    ];
+    el("kpis").innerHTML = kpis.map(function(k){
+      return '<div class="kpi'+(k.accent?" accent":"")+'">'+
+        '<div class="lbl">'+(k.dot?'<span class="dot" style="background:'+k.dot+'"></span>':'')+esc(k.lbl)+'</div>'+
+        '<div class="val">'+k.val+'</div>'+
+        '<div class="foot">'+esc(k.foot)+'</div></div>';
+    }).join("");
+    el("todayHint").textContent = "Today: " + td.contacted + " calls · " + td.wins + " wins";
+  }
+
+  /* ============ render: KAM board ============ */
+  function renderKAM(){
+    var t = stats();
+    el("kamBoard").innerHTML = KAMS.map(function(k){
+      var s = t.byKam[k.id];
+      var cRate = pct(s.contacted, s.assigned);
+      var wRate = pct(s.won, s.contacted);
+      var pWon = s.contacted ? (s.won/s.contacted*100) : 0;
+      var pOther = s.contacted ? ((s.contacted-s.won)/s.contacted*100) : 0;
+      return '<div class="kamcard">'+
+        '<div class="kamhd">'+
+          '<div class="avatar" style="background:'+k.color+'">'+k.short+'</div>'+
+          '<div><div class="kamname">'+esc(k.name)+'</div>'+
+          '<div class="kamrole">Key Account Manager</div></div>'+
+        '</div>'+
+        '<div class="kamstats">'+
+          '<div class="kamstat"><div class="n">'+s.assigned+'</div><div class="k">Leads</div></div>'+
+          '<div class="kamstat"><div class="n">'+s.contacted+'</div><div class="k">Called</div></div>'+
+          '<div class="kamstat"><div class="n" style="color:'+k.color+'">'+s.won+'</div><div class="k">Won</div></div>'+
+        '</div>'+
+        '<div class="bar">'+
+          '<i style="width:'+pWon.toFixed(1)+'%;background:'+k.color+'"></i>'+
+          '<i style="width:'+pOther.toFixed(1)+'%;background:'+k.color+'33"></i>'+
+        '</div>'+
+        '<div class="barlbl"><span>'+wRate+'% win rate</span><span>'+cRate+'% called</span></div>'+
+        '<div class="barlbl" style="margin-top:3px;font-weight:500;color:var(--soft)">'+
+          esc("Won back "+s.wonBack+" · Activated "+s.activated+" · Callback "+s.callback)+
+        '</div>'+
+      '</div>';
+    }).join("");
+
+    var pctDone = t.contacted/t.total*100;
+    el("teamBar").innerHTML =
+      '<i style="width:'+(t.won/t.total*100).toFixed(1)+'%;background:#0E9F6E"></i>'+
+      '<i style="width:'+((t.contacted-t.won)/t.total*100).toFixed(1)+'%;background:#94A3B8"></i>';
+    el("teamProgTxt").textContent = t.contacted+" / "+t.total+" contacted";
+    el("teamPct").textContent = pct(t.contacted,t.total)+"% complete";
+    el("teamRemain").textContent = (t.total-t.contacted)+" left";
+  }
+
+  /* ============ render: donut + legend ============ */
+  function renderCharts(){
+    var t = stats();
+    var R = 60, C = 2*Math.PI*R;
+    var total = t.total, offset = 0, segs = "", legend = "";
+    STATUSES.forEach(function(s){
+      var n = t.byStatus[s.id] || 0;
+      if(!n) return;
+      var len = n/total*C;
+      segs += '<circle cx="75" cy="75" r="'+R+'" fill="none" stroke="'+s.fg+'" stroke-width="19" '+
+              'stroke-dasharray="'+(len-1.5).toFixed(2)+' '+(C-len+1.5).toFixed(2)+'" '+
+              'stroke-dashoffset="'+(-offset).toFixed(2)+'"></circle>';
+      offset += len;
+      legend += '<div class="lg"><span class="sw" style="background:'+s.fg+'"></span>'+
+        '<span class="nm">'+esc(s.label)+'</span>'+
+        '<span class="vl">'+n+'</span>'+
+        '<span class="vl" style="color:var(--soft);font-weight:600;width:42px;text-align:right">'+pct(n,total)+'%</span></div>';
+    });
+    if(!segs){
+      segs = '<circle cx="75" cy="75" r="'+R+'" fill="none" stroke="#EDF1F7" stroke-width="19"></circle>';
+    }
+    el("donut").innerHTML = segs;
+    el("donutBig").textContent = pct(t.contacted,t.total)+"%";
+    el("legend").innerHTML = legend || '<div class="lg"><span class="nm">No data yet</span></div>';
+
+    var churnDone = 0, inactDone = 0, churnWon=0, inactWon=0;
+    BIZ.forEach(function(b){
+      var s = statusOf(b.id);
+      if(b.reason === "Churn"){ if(isContacted(s)) churnDone++; if(isWin(s)) churnWon++; }
+      else { if(isContacted(s)) inactDone++; if(isWin(s)) inactWon++; }
+    });
+    el("churnTxt").textContent = churnDone + " / " + t.churn + " called · " + churnWon + " won back";
+    el("inactiveTxt").textContent = inactDone + " / " + t.inactive + " called · " + inactWon + " activated";
+    el("churnBar").style.width = (t.churn ? churnDone/t.churn*100 : 0) + "%";
+    el("inactiveBar").style.width = (t.inactive ? inactDone/t.inactive*100 : 0) + "%";
+  }
+
+  /* ============ table ============ */
+  var filters = { q:"", kam:"", status:"", reason:"" };
+  var page = 1;
+
+  function filtered(){
+    var q = filters.q.trim().toLowerCase();
+    return BIZ.filter(function(b){
+      if(filters.reason && b.reason !== filters.reason) return false;
+      if(filters.kam && kamOf(b.id) !== filters.kam) return false;
+      var s = statusOf(b.id);
+      if(filters.status){
+        if(filters.status === "__open__"){ if(isContacted(s)) return false; }
+        else if(s !== filters.status) return false;
+      }
+      if(q){
+        var hay = (b.name+" "+b.phone+" "+b.id).toLowerCase();
+        if(hay.indexOf(q) === -1) return false;
+      }
+      return true;
+    });
+  }
+
+  function renderTable(){
+    var rows = filtered();
+    var pages = Math.max(1, Math.ceil(rows.length/PER_PAGE));
+    if(page > pages) page = pages;
+    var slice = rows.slice((page-1)*PER_PAGE, page*PER_PAGE);
+
+    el("tbody").innerHTML = slice.length ? slice.map(function(b, i){
+      var s = statusOf(b.id), st = S_BY_ID[s], k = kamOf(b.id), r = state.records[b.id];
+      var kObj = KAMS.filter(function(x){return x.id===k;})[0] || KAMS[0];
+      var kOpts = KAMS.map(function(x){
+        return '<option value="'+x.id+'"'+(x.id===k?' selected':'')+'>'+esc(x.name.split(" ")[0])+'</option>';
+      }).join("");
+      var sOpts = STATUSES.map(function(x){
+        return '<option value="'+x.id+'"'+(x.id===s?' selected':'')+'>'+x.label+'</option>';
+      }).join("");
+      var idx = (page-1)*PER_PAGE + i + 1;
+      return '<tr class="'+(isWin(s)?'winrow':'')+'">'+
+        '<td style="color:var(--soft);font-size:11px">'+idx+'</td>'+
+        '<td class="biz"><span class="bname" title="'+esc(b.name)+'">'+esc(b.name)+'</span>'+
+          '<span class="bid">#'+esc(b.id)+'</span></td>'+
+        '<td><a class="phone" href="tel:'+esc(b.phone)+'">'+esc(fmtPhone(b.phone))+'</a> '+
+          '<button class="copy" data-copy="'+esc(b.phone)+'" title="Copy number">'+
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>'+
+          '</button></td>'+
+        '<td><span class="pill" style="color:'+(b.reason==="Churn"?"#B91C1C":"#B45309")+';background:'+(b.reason==="Churn"?"#FEF2F2":"#FFFBEB")+'">'+esc(b.reason)+'</span></td>'+
+        '<td><select class="kam" data-kam="'+esc(b.id)+'" style="color:'+kObj.color+';border-color:'+kObj.color+'33">'+kOpts+'</select></td>'+
+        '<td><select class="st" data-st="'+esc(b.id)+'" style="color:'+st.fg+';background-color:'+st.bg+'">'+sOpts+'</select></td>'+
+        '<td><input class="note" data-note="'+esc(b.id)+'" value="'+esc(r?r.n:"")+'" placeholder="Add a note…"></td>'+
+        '<td class="when">'+relTime(r?r.t:0)+'</td>'+
+      '</tr>';
+    }).join("") : '<tr><td colspan="8"><div class="empty">No businesses match these filters.</div></td></tr>';
+
+    var from = rows.length ? (page-1)*PER_PAGE+1 : 0;
+    var to = Math.min(page*PER_PAGE, rows.length);
+    el("pgInfo").textContent = rows.length ? ("Showing "+from+"–"+to+" of "+rows.length) : "No results";
+    el("pgNum").textContent = page+" / "+pages;
+    el("pgPrev").disabled = page <= 1;
+    el("pgNext").disabled = page >= pages;
+    el("tblCount").textContent = rows.length+" of "+BIZ.length+" businesses";
+  }
+
+  function render(){ renderKPIs(); renderKAM(); renderCharts(); renderTable(); }
+
+  /* ============ mutations ============ */
+  function setStatus(id, s, silent){
+    var r = rec(id);
+    var from = r.s;
+    r.s = s; r.t = Date.now();
+    if(from !== s){
+      state.log.push({ t:new Date().toISOString(), id:id, kam:state.actingAs, from:from, to:s });
+      if(state.log.length > 4000) state.log = state.log.slice(-4000);
+    }
+    save();
+    queuePush(id);
+    render();
+    if(!silent) toast("Saved · " + BYID[id].name + " → " + S_BY_ID[s].label);
+  }
+  function setKam(id, k){
+    state.assignments[id] = k;
+    var r = rec(id); r.t = Date.now();
+    save(); queuePush(id); render();
+    toast("Assigned to " + (KAMS.filter(function(x){return x.id===k;})[0]||{}).name);
+  }
+  function setNote(id, n){
+    var r = rec(id);
+    r.n = n; r.t = Date.now();
+    save(); queuePush(id);
+    var row = document.querySelector('[data-note="'+id+'"]');
+    if(row){
+      var td = row.closest("td").nextElementSibling;
+      if(td) td.textContent = "just now";
+    }
+  }
+
+  /* ============ wiring ============ */
+  function buildSelects(){
+    var who = el("whoSel");
+    who.innerHTML = KAMS.map(function(k){
+      return '<option value="'+k.id+'">'+esc(k.name)+'</option>';
+    }).join("");
+    who.value = state.actingAs;
+    who.addEventListener("change", function(){
+      state.actingAs = who.value; save();
+      toast("Acting as " + who.options[who.selectedIndex].text);
+    });
+
+    el("fKam").innerHTML = '<option value="">All KAMs</option>' + KAMS.map(function(k){
+      return '<option value="'+k.id+'">'+esc(k.name)+'</option>';
+    }).join("");
+
+    el("fStatus").innerHTML = '<option value="">All outcomes</option><option value="__open__">Open (not called)</option>' +
+      STATUSES.filter(function(s){ return s.id !== "pending"; }).map(function(s){
+        return '<option value="'+s.id+'">'+esc(s.label)+'</option>';
+      }).join("");
+  }
+
+  function wire(){
+    var q = el("q");
+    q.addEventListener("input", function(){ filters.q = q.value; page = 1; renderTable(); });
+    el("fKam").addEventListener("change", function(e){ filters.kam = e.target.value; page=1; renderTable(); });
+    el("fStatus").addEventListener("change", function(e){ filters.status = e.target.value; page=1; renderTable(); });
+    el("fReason").addEventListener("change", function(e){ filters.reason = e.target.value; page=1; renderTable(); });
+    el("btnClearFilters").addEventListener("click", function(){
+      filters = { q:"", kam:"", status:"", reason:"" };
+      q.value=""; el("fKam").value=""; el("fStatus").value=""; el("fReason").value="";
+      page = 1; renderTable(); toast("Filters cleared");
+    });
+
+    el("pgPrev").addEventListener("click", function(){ if(page>1){ page--; renderTable(); } });
+    el("pgNext").addEventListener("click", function(){ page++; renderTable(); });
+
+    el("tbody").addEventListener("change", function(e){
+      var t = e.target;
+      if(t.dataset.st) setStatus(t.dataset.st, t.value);
+      else if(t.dataset.kam) setKam(t.dataset.kam, t.value);
+    });
+    el("tbody").addEventListener("blur", function(e){
+      if(e.target.dataset && e.target.dataset.note) setNote(e.target.dataset.note, e.target.value);
+    }, true);
+    // save notes as the user types (no re-render, so focus/keystrokes are safe)
+    el("tbody").addEventListener("input", function(e){
+      var t = e.target;
+      if(!t.dataset || !t.dataset.note) return;
+      var r = rec(t.dataset.note);
+      r.n = t.value; r.t = Date.now();
+      save(); queuePush(t.dataset.note);
+    });
+    el("tbody").addEventListener("click", function(e){
+      var btn = e.target.closest ? e.target.closest(".copy") : null;
+      if(!btn) return;
+      var v = btn.getAttribute("data-copy");
+      if(navigator.clipboard && navigator.clipboard.writeText){
+        navigator.clipboard.writeText(v).then(function(){ toast("Copied " + v); },
+          function(){ fallbackCopy(v); });
+      } else fallbackCopy(v);
+    });
+
+    el("btnExport").addEventListener("click", exportCSV);
+    el("btnBackup").addEventListener("click", exportBackup);
+    el("fileIn").addEventListener("change", importBackup);
+  }
+
+  function fallbackCopy(v){
+    var ta = document.createElement("textarea");
+    ta.value = v; ta.style.position="fixed"; ta.style.opacity="0";
+    document.body.appendChild(ta); ta.select();
+    try{ document.execCommand("copy"); toast("Copied " + v); }
+    catch(e){ toast("Copy failed"); }
+    document.body.removeChild(ta);
+  }
+
+  /* ============ export / import ============ */
+  function download(filename, text, mime){
+    var blob = new Blob([text], { type: mime || "text/plain;charset=utf-8" });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a);
+    setTimeout(function(){ URL.revokeObjectURL(url); }, 1500);
+  }
+  function csvCell(v){
+    v = (v==null?"":String(v));
+    return /[",\n]/.test(v) ? '"'+v.replace(/"/g,'""')+'"' : v;
+  }
+  function exportCSV(){
+    var rows = filtered();
+    var head = ["Business ID","Reason","Business Name","Phone","Assigned KAM","Outcome","Notes","Last Updated"];
+    var lines = [head.join(",")];
+    rows.forEach(function(b){
+      var s = statusOf(b.id), r = state.records[b.id] || {};
+      var kObj = KAMS.filter(function(x){ return x.id === kamOf(b.id); })[0] || KAMS[0];
+      lines.push([
+        b.id, b.reason, b.name, b.phone, kObj.name,
+        S_BY_ID[s].label, r.n || "",
+        r.t ? new Date(r.t).toISOString().slice(0,16).replace("T"," ") : ""
+      ].map(csvCell).join(","));
+    });
+    download("churn-win-tracker-"+todayKey()+".csv", "\uFEFF"+lines.join("\r\n"), "text/csv;charset=utf-8");
+    toast("Exported " + rows.length + " rows");
+  }
+  function exportBackup(){
+    var payload = { app:"churn-win-tracker", v:1, exportedAt:new Date().toISOString(),
+                    actingAs:state.actingAs, assignments:state.assignments,
+                    records:state.records, log:state.log.slice(-4000) };
+    download("churn-win-backup-"+todayKey()+".json", JSON.stringify(payload), "application/json");
+    toast("Backup downloaded");
+  }
+  function importBackup(e){
+    var f = e.target.files && e.target.files[0];
+    if(!f) return;
+    var reader = new FileReader();
+    reader.onload = function(){
+      try{
+        var d = JSON.parse(reader.result);
+        if(!d || !d.records) throw new Error("Not a tracker backup");
+        var merged = 0, kept = 0;
+        Object.keys(d.records).forEach(function(id){
+          if(!BYID[id]) return;
+          var incoming = d.records[id] || {};
+          var cur = state.records[id];
+          var inT = incoming.t || 0, curT = (cur && cur.t) || 0;
+          if(!cur || inT > curT){
+            state.records[id] = { s:incoming.s || "pending", n:incoming.n || "", t:inT };
+            merged++;
+          } else kept++;
+        });
+        if(d.assignments){
+          Object.keys(d.assignments).forEach(function(id){
+            if(BYID[id]) state.assignments[id] = d.assignments[id];
+          });
+        }
+        ensureAssignments(state);
+        if(Array.isArray(d.log)) state.log = state.log.concat(d.log).slice(-4000);
+        save(); render();
+        Object.keys(state.assignments).forEach(function(id){ queuePush(id); });
+        toast("Restored — " + merged + " updated, " + kept + " kept (newer locally)");
+      }catch(err){
+        toast("Could not read that file");
+      }
+      e.target.value = "";
+    };
+    reader.readAsText(f);
+  }
+
+  /* ============================================================
+     Google Sheet sync
+     Dashboard <-> Apps Script web app <-> "Churn & Inactive merchant List"
+     Columns: A Business ID | B Reason | C Business Name | D Phone
+              E Assigned KAM  | F Outcome | G Notes | H Updated
+     ============================================================ */
+  var SYNC_KEY = "cwt.sync.url";
+  var sync = { url:"", status:"off", lastOk:0, detail:"", queue:{}, busy:false,
+               timer:null, retry:null, poll:null };
+
+  var LABEL_TO_ID = {};
+  STATUSES.forEach(function(s){ LABEL_TO_ID[s.label.toLowerCase()] = s.id; LABEL_TO_ID[s.id] = s.id; });
+  var NAME_TO_KAM = {};
+  KAMS.forEach(function(k){
+    NAME_TO_KAM[k.name.toLowerCase()] = k.id;
+    NAME_TO_KAM[k.id] = k.id;
+    NAME_TO_KAM[k.name.split(" ")[0].toLowerCase()] = k.id;
+  });
+  function kamName(id){
+    var k = KAMS.filter(function(x){ return x.id === id; })[0];
+    return k ? k.name : KAMS[0].name;
+  }
+  function statusLabel(id){ return (S_BY_ID[id] || S_BY_ID.pending).label; }
+
+  try{ sync.url = localStorage.getItem(SYNC_KEY) || ""; }catch(e){ sync.url = ""; }
+
+  function syncActive(){ return !!sync.url; }
+
+  function renderSyncUI(){
+    var pill = el("syncPill"), txt = el("syncPillTxt");
+    if(!pill) return;
+    var st = sync.status, label;
+    if(!syncActive())          { st = "off";     label = "Sheet sync off"; }
+    else if(st === "syncing")  { label = "Saving…"; }
+    else if(st === "error")    { label = "Sync error"; }
+    else if(st === "queued")   { label = "Pending…"; }
+    else if(st === "ok")       { label = "Synced"; }
+    else                       { label = "Sheet sync on"; }
+    pill.setAttribute("data-st", st);
+    txt.textContent = label;
+    pill.title = syncActive()
+      ? ("Sheet sync " + (st==="error" ? "error: " + sync.detail : st) +
+         (sync.lastOk ? " · last " + relTime(sync.lastOk) : ""))
+      : "Click to connect a Google Sheet";
+
+    var box = el("syncStat");
+    if(box){
+      if(!syncActive()){ box.className = "syncstat"; box.textContent = "Not connected — paste the web-app URL above."; }
+      else if(st === "error"){ box.className = "syncstat err"; box.textContent = "Sync error: " + (sync.detail || "unknown"); }
+      else {
+        var q = Object.keys(sync.queue).length;
+        box.className = "syncstat ok";
+        box.textContent = "Connected · " + (sync.lastOk ? "last synced " + relTime(sync.lastOk) : "waiting for first sync") +
+          (q ? " · " + q + " change" + (q>1?"s":"") + " queued" : "");
+      }
+    }
+  }
+
+  /* --- queueing: every local edit marks that merchant dirty --- */
+  function queuePush(id){
+    if(!syncActive()) return;
+    var r = state.records[id] || { s:"pending", n:"", t:0 };
+    sync.queue[id] = { s:r.s, k:kamOf(id), n:r.n || "", t:r.t || Date.now() };
+    if(sync.status !== "error") sync.status = "queued";
+    renderSyncUI();
+    clearTimeout(sync.timer);
+    sync.timer = setTimeout(flush, 800);
+  }
+
+  function payloadFor(ids){
+    return { updates: ids.map(function(id){
+      var q = sync.queue[id];
+      return { id:String(id), kam:kamName(q.k), outcome:statusLabel(q.s),
+               notes:q.n, updated:new Date(q.t).toISOString() };
+    }) };
+  }
+
+  // Apps Script can't answer CORS preflight, so we POST as text/plain.
+  function postSheet(body){
+    return fetch(sync.url, {
+      method:"POST", redirect:"follow",
+      headers:{ "Content-Type":"text/plain;charset=utf-8" },
+      body: JSON.stringify(body)
+    }).then(function(r){
+      if(!r.ok) throw new Error("HTTP " + r.status);
+      return r.text().then(function(t){
+        try{ return JSON.parse(t); }catch(e){ return { ok:true }; }
+      });
+    });
+  }
+
+  function flush(){
+    if(!syncActive() || sync.busy) return;
+    var ids = Object.keys(sync.queue);
+    if(!ids.length) return;
+    sync.busy = true; sync.status = "syncing"; renderSyncUI();
+    postSheet(payloadFor(ids)).then(function(res){
+      ids.forEach(function(id){ delete sync.queue[id]; });
+      sync.busy = false; sync.lastOk = Date.now(); sync.detail = "";
+      sync.status = Object.keys(sync.queue).length ? "queued" : "ok";
+      renderSyncUI();
+      if(sync.status === "queued"){ clearTimeout(sync.timer); sync.timer = setTimeout(flush, 400); }
+    }).catch(function(err){
+      sync.busy = false;
+      sync.status = "error";
+      sync.detail = (err && err.message) || String(err);
+      renderSyncUI();
+      clearTimeout(sync.retry);
+      sync.retry = setTimeout(flush, 6000);   // keep retrying; changes stay queued
+    });
+  }
+
+  /* --- pull: the sheet is shared truth, newest timestamp wins --- */
+  function pullSheet(silent){
+    if(!syncActive()) return Promise.resolve(0);
+    sync.status = sync.status === "queued" ? "queued" : "syncing";
+    renderSyncUI();
+    var url = sync.url + (sync.url.indexOf("?") > -1 ? "&" : "?") + "_t=" + Date.now();
+    return fetch(url, { method:"GET", redirect:"follow" })
+      .then(function(r){
+        if(!r.ok) throw new Error("HTTP " + r.status);
+        return r.json();
+      })
+      .then(function(d){
+        var rows = (d && d.rows) || [], applied = 0;
+        rows.forEach(function(rw){
+          if(!rw || rw.length < 5) return;
+          var id = String(rw[0] == null ? "" : rw[0]).trim();
+          if(!BYID[id]) return;
+
+          var kamId  = NAME_TO_KAM[String(rw[1]||"").toLowerCase().trim()];
+          var stId   = LABEL_TO_ID[String(rw[2]||"").toLowerCase().trim()];
+          var notes  = rw[3] == null ? "" : String(rw[3]);
+          var t      = Date.parse(rw[4]) || 0;
+
+          if(kamId) state.assignments[id] = kamId;
+
+          var cur = state.records[id] || { s:"pending", n:"", t:0 };
+          if(t > (cur.t || 0)){
+            state.records[id] = { s: stId || cur.s || "pending", n: notes, t: t };
+            applied++;
+          }
+        });
+        ensureAssignments(state);
+        sync.lastOk = Date.now();
+        sync.detail = "";
+        if(sync.status !== "queued") sync.status = "ok";
+        renderSyncUI(); save(); render();
+        if(!silent) toast(applied ? ("Pulled " + applied + " update" + (applied>1?"s":"") + " from the sheet")
+                                  : "Sheet already up to date");
+        return applied;
+      })
+      .catch(function(err){
+        sync.status = "error";
+        sync.detail = (err && err.message) || String(err);
+        renderSyncUI();
+        if(!silent) toast("Could not read the sheet: " + sync.detail);
+        return 0;
+      });
+  }
+
+  /* --- push every locally-known record (first-time seeding) --- */
+  function pushAllLocal(){
+    if(!syncActive()){ toast("Connect a Sheet URL first"); return; }
+    var ids = Object.keys(state.records).filter(function(id){
+      return BYID[id] && state.records[id] && state.records[id].t;
+    });
+    if(!ids.length){ toast("Nothing to push yet"); return; }
+    var chunks = [], size = 100;
+    for(var i=0;i<ids.length;i+=size) chunks.push(ids.slice(i, i+size));
+    Object.keys(sync.queue).forEach(function(id){ delete sync.queue[id]; });
+    sync.status = "syncing"; renderSyncUI();
+    var done = 0, failed = 0;
+    var chain = Promise.resolve();
+    chunks.forEach(function(chunk){
+      chain = chain.then(function(){
+        var body = { updates: chunk.map(function(id){
+          var r = state.records[id];
+          return { id:String(id), kam:kamName(kamOf(id)), outcome:statusLabel(r.s),
+                   notes:r.n || "", updated:new Date(r.t).toISOString() };
+        })};
+        return postSheet(body).then(function(){ done += chunk.length; })
+          .catch(function(){ failed += chunk.length; });
+      });
+    });
+    chain.then(function(){
+      sync.status = failed ? "error" : "ok";
+      sync.detail = failed ? (failed + " rows failed") : "";
+      if(!failed) sync.lastOk = Date.now();
+      renderSyncUI();
+      toast(failed ? ("Pushed " + done + ", failed " + failed)
+                   : ("Pushed " + done + " rows to the sheet"));
+    });
+  }
+
+  function saveSyncUrl(u){
+    sync.url = (u || "").trim();
+    try{
+      if(sync.url) localStorage.setItem(SYNC_KEY, sync.url);
+      else localStorage.removeItem(SYNC_KEY);
+    }catch(e){}
+    sync.status = sync.url ? "ok" : "off";
+    sync.detail = "";
+    renderSyncUI();
+  }
+
+  function startPolling(){
+    clearInterval(sync.poll);
+    sync.poll = setInterval(function(){
+      if(document.visibilityState === "visible" && syncActive() && !sync.busy) pullSheet(true);
+    }, 45000);
+  }
+
+  function wireSync(){
+    var modal = el("syncModal");
+    function openModal(){
+      el("syncUrl").value = sync.url;
+      renderSyncUI();
+      modal.classList.add("open");
+      setTimeout(function(){ el("syncUrl").focus(); }, 40);
+    }
+    function closeModal(){ modal.classList.remove("open"); }
+
+    el("syncPill").addEventListener("click", openModal);
+    el("syncClose").addEventListener("click", closeModal);
+    modal.addEventListener("click", function(e){ if(e.target === modal) closeModal(); });
+    document.addEventListener("keydown", function(e){
+      if(e.key === "Escape" && modal.classList.contains("open")) closeModal();
+    });
+
+    el("syncSave").addEventListener("click", function(){
+      var u = el("syncUrl").value.trim();
+      if(u && !/^https:\/\/script\.google\.com\/macros\/s\/[^/]+\/exec/.test(u)){
+        toast("That doesn't look like an Apps Script /exec URL");
+      }
+      saveSyncUrl(u);
+      if(sync.url){ toast("Saved — checking the connection…"); pullSheet(false); }
+      else toast("Sheet sync disconnected");
+    });
+
+    el("syncNow").addEventListener("click", function(){
+      if(!syncActive()){ toast("Connect a Sheet URL first"); return; }
+      flush(); pullSheet(false);
+    });
+
+    el("syncPushAll").addEventListener("click", pushAllLocal);
+
+    el("syncDisconnect").addEventListener("click", function(){
+      saveSyncUrl("");
+      el("syncUrl").value = "";
+      toast("Disconnected — nothing more will be written to the sheet");
+    });
+
+    document.addEventListener("visibilitychange", function(){
+      if(document.visibilityState === "visible" && syncActive() && !sync.busy) pullSheet(true);
+    });
+    window.addEventListener("online", function(){
+      if(syncActive() && Object.keys(sync.queue).length) flush();
+    });
+    startPolling();
+  }
+
+  /* ============ boot ============ */
+  el("subCount").textContent = BIZ.length;
+  buildSelects();
+  wire();
+  wireSync();
+  render();
+  renderSyncUI();
+  if(syncActive()) pullSheet(true);
+})();
+</script>
+</body>
+</html>
