@@ -38,6 +38,10 @@ Two extra table columns come from Hive: **Lifetime orders** and **Avg/day**
 (lifetime orders ÷ active days). Active days is kept in the data and shipped in
 the CSV export but is not shown as its own column.
 
+Both also go to the Google Sheet as columns **I (Lifetime orders)** and
+**J (Avg order / day)**: with every KAM edit, and for all 540 merchants at once
+via **Push orders** in the Sheet-sync dialog. See `apps-script/README.md`.
+
 They stay **hidden until metrics exist** — an all-empty dashboard looks broken,
 so `build.py` only makes them appear once at least one business has numbers.
 

@@ -65,8 +65,25 @@ that device — that seeds the sheet.
 | **F** | **Outcome** | `Won back` |
 | **G** | **Notes** | `Asked to call after Eid` |
 | **H** | **Updated** | `2026-10-28T14:35:49.783Z` |
+| **I** | **Lifetime orders** | `678` |
+| **J** | **Avg order / day** | `23.38` |
 
 Rows are matched by **Business ID**, so the order of rows in the sheet doesn't matter.
+
+**Average order** here means *orders per active day* — lifetime orders divided by
+the number of distinct days the merchant ordered. It is not an order value in
+৳, and not orders per month.
+
+Columns E–H fill in as KAMs work through the list. Columns I–J are order data
+that comes from Hive, not from anyone's edits, so they are written two ways:
+
+- automatically with every E–H write, so a merchant is always complete
+- in one go by **Push orders** in the dashboard's Sheet-sync dialog, which walks
+  all 540 merchants in batches of 100 and writes only I–J
+
+`Push orders` sends `{id, orders, avg}` and nothing else, and the Apps Script
+only writes the columns an update actually carries — so it can never blank
+someone's outcome or notes.
 
 ## How syncing behaves
 
@@ -84,7 +101,7 @@ Rows are matched by **Business ID**, so the order of rows in the sheet doesn't m
 |---|---|
 | `GET  …/exec?action=ping` | connection test → `{ok, sheet, rows}` |
 | `GET  …/exec?action=rows` | all tracker rows → `{ok, rows:[[id,kam,outcome,notes,updated]]}` |
-| `POST …/exec` | body `{updates:[{id,kam,outcome,notes,updated}]}` → writes E–H |
+| `POST …/exec` | body `{updates:[{id,kam,outcome,notes,updated,orders,avg}]}` → writes whichever of E–J each update carries |
 
 Test it in a terminal:
 

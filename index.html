@@ -493,8 +493,9 @@
       <input type="url" id="syncUrl" placeholder="https://script.google.com/macros/s/…/exec" spellcheck="false">
       <div class="hintline">
         Every outcome, KAM and note change is written straight into
-        <b>Churn &amp; Inactive merchant List</b> (columns E–H), and the dashboard pulls the
-        other KAM's updates back.
+        <b>Churn &amp; Inactive merchant List</b> (columns E–H, plus lifetime orders and
+        average order in I–J), and the dashboard pulls the other KAM's updates back.
+        <b>Push orders</b> writes those two columns for all merchants at once.
       </div>
 
       <div class="syncstat" id="syncStat">Not connected — paste the web-app URL above.</div>
@@ -503,6 +504,7 @@
         <button class="btn btn-primary" id="syncSave">Save &amp; connect</button>
         <button class="btn btn-line" id="syncNow">Sync now</button>
         <button class="btn btn-line" id="syncPushAll">Push all local</button>
+        <button class="btn btn-line" id="syncPushOrders" title="Write lifetime orders and average order for every merchant">Push orders</button>
         <button class="btn btn-danger" id="syncDisconnect">Disconnect</button>
       </div>
 
@@ -1268,11 +1270,24 @@
     sync.timer = setTimeout(flush, 800);
   }
 
+  // Lifetime orders + average order (orders per active day), as the sheet wants them.
+  function orderFields(id){
+    var b = BYID[id];
+    if(!b) return { orders:"", avg:"" };
+    var a = avgPerDay(b);
+    return {
+      orders: b.orders === null || b.orders === undefined ? "" : b.orders,
+      avg: a === null ? "" : Math.round(a * 100) / 100
+    };
+  }
+
   function payloadFor(ids){
     return { updates: ids.map(function(id){
       var q = sync.queue[id];
+      var o = orderFields(id);
       return { id:String(id), kam:kamName(q.k), outcome:statusLabel(q.s),
-               notes:q.n, updated:new Date(q.t).toISOString() };
+               notes:q.n, updated:new Date(q.t).toISOString(),
+               orders:o.orders, avg:o.avg };
     }) };
   }
 
@@ -1376,9 +1391,10 @@
     chunks.forEach(function(chunk){
       chain = chain.then(function(){
         var body = { updates: chunk.map(function(id){
-          var r = state.records[id];
+          var r = state.records[id], o = orderFields(id);
           return { id:String(id), kam:kamName(kamOf(id)), outcome:statusLabel(r.s),
-                   notes:r.n || "", updated:new Date(r.t).toISOString() };
+                   notes:r.n || "", updated:new Date(r.t).toISOString(),
+                   orders:o.orders, avg:o.avg };
         })};
         return postSheet(body).then(function(){ done += chunk.length; })
           .catch(function(){ failed += chunk.length; });
@@ -1391,6 +1407,44 @@
       renderSyncUI();
       toast(failed ? ("Pushed " + done + ", failed " + failed)
                    : ("Pushed " + done + " rows to the sheet"));
+    });
+  }
+
+  /* Writes only I and J for every merchant. The Apps Script skips columns an
+     update does not carry, so this cannot blank a KAM's outcome or notes. */
+  function pushOrders(){
+    if(!syncActive()){ toast("Connect a Sheet URL first"); return; }
+    var ids = BIZ.filter(function(b){ return b.orders !== null; })
+                 .map(function(b){ return b.id; });
+    if(!ids.length){ toast("No order data to push"); return; }
+
+    var chunks = [], size = 100;
+    for(var i = 0; i < ids.length; i += size) chunks.push(ids.slice(i, i + size));
+
+    sync.status = "syncing"; renderSyncUI();
+    var done = 0, failed = 0;
+    var chain = Promise.resolve();
+    chunks.forEach(function(chunk){
+      chain = chain.then(function(){
+        var body = { updates: chunk.map(function(id){
+          var o = orderFields(id);
+          return { id:String(id), orders:o.orders, avg:o.avg };
+        })};
+        return postSheet(body)
+          .then(function(res){
+            if(res && res.ok === false) throw new Error(res.error || "rejected");
+            done += chunk.length;
+          })
+          .catch(function(){ failed += chunk.length; });
+      });
+    });
+    chain.then(function(){
+      sync.status = failed ? "error" : "ok";
+      sync.detail = failed ? (failed + " rows failed") : "";
+      if(!failed) sync.lastOk = Date.now();
+      renderSyncUI();
+      toast(failed ? ("Wrote " + done + ", failed " + failed)
+                   : ("Wrote orders for " + done + " merchants to the sheet"));
     });
   }
 
@@ -1445,6 +1499,7 @@
     });
 
     el("syncPushAll").addEventListener("click", pushAllLocal);
+    el("syncPushOrders").addEventListener("click", pushOrders);
 
     el("syncDisconnect").addEventListener("click", function(){
       saveSyncUrl("");
