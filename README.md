@@ -1,154 +1,107 @@
-# Churn Win Tracker
+# Google Sheet sync — setup (5 minutes, one time)
 
-Win-back calling dashboard for the **540 churned & inactive merchants** on the
-*Churn & Inactive merchant List* sheet. Two KAMs — **Ahmed Asif Rashid** and
-**Nuruzzaman Nahid** — work the list, log the outcome of each call, and every
-change is **written straight into the Google Sheet**. Both KAMs see one shared board.
+The dashboard writes every **Assigned KAM / Outcome / Notes / Updated** change
+straight into your sheet, and reads the other KAM's changes back. It does this
+through a small **Apps Script Web App** that lives inside the spreadsheet — no
+API keys, no database, no server of your own.
 
-![Dashboard](docs/dashboard.png)
+```
+Dashboard (Vercel)  ──POST/GET──▶  Apps Script Web App  ──▶  Google Sheet
+                    ◀──pulls────                     ◀──   columns E–H
+```
 
-*Screenshot uses seeded demo data — a fresh install starts with all 540 pending.*
+Why this design: a static page can't hold Google credentials safely. Apps
+Script runs *as you*, inside the sheet, so nothing secret ever ships to the browser.
 
 ---
 
-## How the pieces fit
+## Step 1 — Add the script to the sheet
 
+1. Open **Churn & Inactive merchant List**
+2. **Extensions → Apps Script**
+3. Delete whatever is in `Code.gs`, paste **this folder's `Code.gs`**
+4. **Save** (💾)
+
+The file already points at the right spreadsheet:
+
+```js
+var SPREADSHEET_ID = '1X0ILBCnzOp8xAGmvCyE5GuIt7wzr-r8K7DgQZsqWieY';
+var SHEET_NAME = 'Sheet1';
 ```
-┌────────────────┐   POST/GET    ┌──────────────────┐   writes E–H   ┌──────────────┐
-│   Dashboard    │ ────────────▶ │  Apps Script     │ ─────────────▶ │ Google Sheet │
-│  (Vercel,      │ ◀──────────── │  Web App         │ ◀───────────── │  columns E–H │
-│   static page) │   pull rows   │  (inside sheet)  │                │              │
-└────────────────┘               └──────────────────┘                └──────────────┘
-```
 
-The dashboard is a single static HTML file — no build step, no Node runtime.
-A static page cannot safely hold Google credentials, so the sheet writes go
-through an **Apps Script Web App** that runs inside your spreadsheet. Nothing
-secret is ever shipped to the browser.
+## Step 2 — Deploy as a Web App
 
-👉 **Setup: see [`apps-script/README.md`](apps-script/README.md) — one-time, ~5 minutes.**
+1. **Deploy → New deployment**
+2. Gear icon → **Web app**
+3. **Description:** `Churn tracker sync`
+4. **Execute as:** `Me (your@email)`
+5. **Who has access:** **Anyone**  ← must be *Anyone*, not "Anyone with Google account"
+6. **Deploy** → authorise when prompted (it will ask for permission to edit that sheet — expected)
+7. Copy the **Web app URL** — it ends in `/exec`
+
+> "Anyone" here means *anyone holding this unguessable URL*, not the public web.
+> It only exposes this one sheet through the routes below.
+
+## Step 3 — Connect the dashboard
+
+1. Open the dashboard → click the **Sheet sync** pill in the header
+2. Paste the `/exec` URL → **Save & connect**
+3. It should immediately say **Synced** and show `Connected · last synced just now`
+
+First time only, click **Push all local** if any calls were already logged on
+that device — that seeds the sheet.
 
 ---
 
-## What it does
+## What gets written
 
-| Area | Detail |
+| Column | Field | Example |
+|---|---|---|
+| A | Business ID *(already there)* | `359` |
+| B | Reason *(already there)* | `Churn` |
+| C | Business Name *(already there)* | `Aladeener Cherag` |
+| D | Phone *(already there)* | `8801836102283` |
+| **E** | **Assigned KAM** | `Ahmed Asif Rashid` |
+| **F** | **Outcome** | `Won back` |
+| **G** | **Notes** | `Asked to call after Eid` |
+| **H** | **Updated** | `2026-10-28T14:35:49.783Z` |
+
+Rows are matched by **Business ID**, so the order of rows in the sheet doesn't matter.
+
+## How syncing behaves
+
+- Every edit is **saved locally instantly**, then queued for the sheet within ~1 second
+- If the sheet is unreachable, the pill turns **Sync error** and the change stays
+  queued; it retries every 6 seconds until it lands — nothing is lost
+- The dashboard **pulls automatically** every 45 seconds (and when you return to the tab),
+  so both KAMs converge on one shared state
+- Conflict rule: **newest `Updated` timestamp wins** per merchant
+- **Disconnect** in the settings dialog stops all writing; local data is untouched
+
+## Endpoints exposed by the web app
+
+| Route | Purpose |
 |---|---|
-| **KPI strip** | Total merchants, Contacted, Won back, Activated, Win rate, Still pending |
-| **KAM board** | Per-KAM leads / called / won, win rate, call-through rate, team progress |
-| **Outcome donut** | Live split across the 7 outcomes, plus Churn (311) vs Inactive (229) progress separately |
-| **Work list** | 540 merchants, 50/page, click-to-call `tel:` links, one-tap copy, KAM reassignment, outcome dropdown, notes, updated time |
-| **Search & filters** | By name (Bengali supported), phone or ID; filter by KAM, outcome, Churn/Inactive |
-| **Sheet sync** | Every edit queued → written to columns E–H; pulls the other KAM's edits every 45s |
-| **Export** | Filtered CSV, Excel-safe UTF-8 so Bangla names survive |
-| **Backup / Restore** | Offline JSON backup; Restore merges newest-wins (works with or without a sheet) |
+| `GET  …/exec?action=ping` | connection test → `{ok, sheet, rows}` |
+| `GET  …/exec?action=rows` | all tracker rows → `{ok, rows:[[id,kam,outcome,notes,updated]]}` |
+| `POST …/exec` | body `{updates:[{id,kam,outcome,notes,updated}]}` → writes E–H |
 
-Outcomes: `Pending` · `No answer` · `Callback` · `Won back` · `Activated` ·
-`Not interested` · `Wrong number`.
-**Wins** = `Won back` + `Activated`. **Win rate** = wins ÷ merchants contacted.
-`Acting as` decides which KAM is credited in the activity log.
-
----
-
-## Sheet sync behaviour
-
-- Edits are saved to the browser **instantly**, then pushed to the sheet within ~1s
-- Sheet unreachable → pill shows **Sync error**, change stays queued and retries
-  every 6s until it lands. Nothing is lost, and the local UI never blocks.
-- Auto-pull every 45s, and when you return to the tab → the two KAMs converge
-- Conflict rule: **newest `Updated` timestamp wins** per merchant (matched by Business ID)
-- **Disconnect** stops all writing; local data untouched
-- Offline-first: the app is fully usable with sync switched off
-
-Sheet columns: `A` Business ID · `B` Reason · `C` Business Name · `D` Phone ·
-**`E` Assigned KAM · `F` Outcome · `G` Notes · `H` Updated**
-
----
-
-## Run locally
+Test it in a terminal:
 
 ```bash
-open index.html          # macOS
-xdg-open index.html      # Linux
-start index.html         # Windows
+curl -L "https://script.google.com/macros/s/…/exec?action=ping"
 ```
 
-Or serve it:
+## Troubleshooting
 
-```bash
-python3 -m http.server 4173   # → http://localhost:4173
-```
+| Symptom | Fix |
+|---|---|
+| Pill stuck on **Sync error** | Re-copy the `/exec` URL; make sure access is **Anyone** |
+| "Could not read the sheet" | You edited `Code.gs` but didn't deploy a **new version** (`Deploy → Manage deployments → ✏️ → Version: New version`) |
+| Nothing appears in E–H | Business IDs in column A must match the dashboard's IDs; check `↑ Push all local` |
+| Writes slow for big batches | Normal for Apps Script (≈1s per 100 rows); the queue handles it |
 
-## Rebuild after changing data or UI
+## Re-deploying after editing `Code.gs`
 
-```bash
-# 1. edit src/template.html (UI/logic) or src/biz_data.json (merchant data)
-python3 build.py             # → regenerates index.html
-```
-
-`src/biz_data.json` is `[[businessId, reason, name, phone], …]`.
-Refresh it from Hive and re-run `build.py` — nothing else changes.
-
----
-
-## Push to GitHub
-
-```bash
-cd churn-win-tracker
-git init && git add . && git commit -m "Churn win tracker with Google Sheet sync"
-git branch -M main
-# create an empty repo on github.com first, then:
-git remote add origin https://github.com/<you>/churn-win-tracker.git
-git push -u origin main
-```
-
-## Deploy to Vercel
-
-**Option A — dashboard (auto-deploys on every push)**
-1. [vercel.com/new](https://vercel.com/new) → **Import Git Repository** → pick the repo
-2. Framework preset **Other**, no build command, no output directory
-3. **Deploy**
-
-**Option B — CLI**
-
-```bash
-npm i -g vercel
-cd churn-win-tracker
-vercel --prod
-```
-
-No environment variables, no database, no build step.
-
----
-
-## Project structure
-
-```
-churn-win-tracker/
-├── index.html              # built app — this is what gets deployed
-├── src/
-│   ├── template.html       # source UI + logic (data placeholder __DATA__)
-│   └── biz_data.json       # 540 merchants: [id, reason, name, phone]
-├── build.py                # inlines data into template → index.html
-├── apps-script/
-│   ├── Code.gs             # the web app that writes to the sheet
-│   └── README.md           # 5-minute setup guide
-├── docs/dashboard.png
-├── vercel.json
-└── .gitignore
-```
-
----
-
-## Notes & limitations
-
-- Phone numbers are kept exactly as Hive stores them. Two are local format
-  (`12348` → `01326882802`, `13089` → `01636090607`); the rest are `8801XXXXXXXXX`.
-- Bengali names render with the system Bengali font (`Noto Sans Bengali`,
-  `Nirmala UI`, `Vrinda`, `SolaimanLipi`, `Kalpurush` fallbacks).
-- The dashboard ships **empty** (all 540 pending). The screenshots are seeded demo data.
-- Apps Script web apps have no CORS preflight support, so the client POSTs as
-  `text/plain` — deliberate, and verified.
-- Sync is last-write-wins on a timestamp. If both KAMs edit the *same* merchant
-  within the same second, one note can be overwritten — normal for this scale.
-- Each browser keeps a local cache; the sheet remains the shared source of truth.
+`Deploy → Manage deployments → ✏️ (edit) → Version: **New version** → Deploy`.
+The `/exec` URL stays identical, so the dashboard keeps working.
