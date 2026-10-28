@@ -21,6 +21,7 @@ Nuruzzaman Nahid.
 | `docs/hive-orders-pull.js` | Generated console script: pulls lifetime orders + order dates for all 540 businesses |
 | `docs/hive-pull.js` | Console snippet that pulls the business list itself (name / phone / active days) |
 | `make_hive_script.py` | Regenerates `docs/hive-orders-pull.js` with the business list embedded |
+| `test_pagination.js` | Mocked-Hive test for the puller's counting logic (`node test_pagination.js`) |
 | `vercel.json` | `cleanUrls`, `trailingSlash`, cache headers |
 
 ## Hive metrics (lifetime orders · avg/day)
