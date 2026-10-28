@@ -31,21 +31,37 @@ METRICS_PATH = ROOT / "src" / "biz_metrics.json"
 
 START = "HIVEPASTE1"
 END = "HIVEPASTE0"
+DSTART = "HIVEDATES1"          # docs/hive-dates.js, adds first/last order dates
+DEND = "HIVEDATES0"
+DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
 
 def read_blob(text: str) -> str:
-    """Strip the markers and whitespace, keeping the id|orders|days entries."""
-    if START in text:
-        text = text.split(START, 1)[1]
-    if END in text:
-        text = text.split(END, 1)[0]
+    """Strip the markers and whitespace, keeping the id|orders|days[|first|last] entries."""
+    for start, end in ((DSTART, DEND), (START, END)):
+        if start in text:
+            text = text.split(start, 1)[1]
+        if end in text:
+            text = text.split(end, 1)[0]
     text = re.sub(r"-{2,}[^\n]*", "\n", text)          # console banner lines
     text = re.sub(r"%c|color:#[0-9A-Fa-f]{6};?[a-z-]*:?[a-z]*;?", "", text)
     text = re.sub(r"\s+", "", text)                     # chunks were split anywhere
     return text
 
 
-def parse_entries(blob: str) -> list[tuple[str, str | None, str | None]]:
+def clean_date(v: str | None) -> str | None:
+    if not v:
+        return None
+    v = v.strip()
+    return v if DATE_RE.match(v) else None
+
+
+def parse_entries(blob: str) -> list[tuple[str, str | None, str | None, str | None, str | None]]:
+    """-> (id, orders, days, first, last).
+
+    The 5-field form comes from docs/hive-dates.js; the 3-field form from
+    docs/hive-min.js. Trailing fields are optional so both parse.
+    """
     out = []
     for chunk in blob.split(";"):
         if not chunk:
@@ -56,9 +72,13 @@ def parse_entries(blob: str) -> list[tuple[str, str | None, str | None]]:
         bid = parts[0].strip()
         orders = parts[1].strip() if len(parts) > 1 else ""
         days = parts[2].strip() if len(parts) > 2 else ""
+        first = clean_date(parts[3]) if len(parts) > 3 else None
+        last = clean_date(parts[4]) if len(parts) > 4 else None
+        if first and last and first > last:      # a reversed range is not usable
+            first = last = None
         if not re.fullmatch(r"[A-Za-z0-9_-]+", bid):
             continue
-        out.append((bid, orders or None, days or None))
+        out.append((bid, orders or None, days or None, first, last))
     return out
 
 
@@ -96,9 +116,9 @@ def main() -> int:
             existing = {}
 
     metrics = dict(existing)
-    updated = blank = unknown = kept = 0
+    updated = blank = unknown = kept = dated = 0
     changed: list[tuple[str, int, int]] = []
-    for bid, orders_s, days_s in entries:
+    for bid, orders_s, days_s, first_s, last_s in entries:
         if bid not in known:
             unknown += 1
             continue
@@ -121,6 +141,10 @@ def main() -> int:
                 entry["days"] = days
             elif orders == 0:
                 entry["days"] = 0
+            if first_s and last_s:
+                if entry.get("first") != first_s or entry.get("last") != last_s:
+                    dated += 1
+                entry["first"], entry["last"] = first_s, last_s
             if before is not None and before != orders:
                 changed.append((bid, before, orders))
             updated += 1
@@ -133,6 +157,8 @@ def main() -> int:
     print(f"Left blank            : {blank}"
           + (f"  ({kept} kept an earlier count)" if kept else ""))
     print(f"Unknown ids (skipped) : {unknown}")
+    if dated:
+        print(f"Order dates written   : {dated}")
     print(f"Coverage now          : {with_orders} / {len(biz)}")
 
     if changed:

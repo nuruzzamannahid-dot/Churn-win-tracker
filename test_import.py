@@ -119,5 +119,43 @@ check("clean data not flagged", "Suspicious rows       : 0" in out, out)
 _, out = run({"101": {"orders": 55, "days": 2}}, wrap("101||"))
 check("kept count reported", "kept an earlier count" in out, out)
 
+
+# --- 5-field rows from docs/hive-dates.js (id|orders|days|first|last) ---------
+
+m, out = run({}, wrap("101|55|20|2025-03-14|2026-09-02"))
+check("5-field row writes orders", m["101"]["orders"] == 55, str(m["101"]))
+check("5-field row writes first", m["101"].get("first") == "2025-03-14", str(m["101"]))
+check("5-field row writes last", m["101"].get("last") == "2026-09-02", str(m["101"]))
+check("dates reported", "Order dates written   : 1" in out, out)
+
+# a later 3-field sweep must not erase dates it does not carry
+m, _ = run({"101": {"orders": 55, "days": 20,
+                    "first": "2025-03-14", "last": "2026-09-02"}}, wrap("101|55|20"))
+check("3-field paste keeps existing dates",
+      m["101"].get("first") == "2025-03-14" and m["101"].get("last") == "2026-09-02",
+      str(m["101"]))
+
+# a reversed range is unusable and must not be stored
+m, _ = run({}, wrap("101|55|20|2026-09-02|2025-03-14"))
+check("reversed date range rejected",
+      m["101"].get("first") is None and m["101"].get("last") is None, str(m["101"]))
+check("reversed range keeps the count", m["101"]["orders"] == 55, str(m["101"]))
+
+# a malformed date must not become a value
+m, _ = run({}, wrap("101|55|20|14/03/2025|2026-09-02"))
+check("malformed date rejected", m["101"].get("first") is None, str(m["101"]))
+
+# a blank count still leaves earlier dates alone
+m, _ = run({"101": {"orders": 55, "days": 20,
+                    "first": "2025-01-01", "last": "2025-06-01"}}, wrap("101||||"))
+check("blank row keeps dates",
+      m["101"].get("first") == "2025-01-01", str(m["101"]))
+check("blank row keeps count", m["101"].get("orders") == 55, str(m["101"]))
+
+# dates flow through even when the row also corrects the count
+m, _ = run({"101": {"orders": 100, "days": 0}}, wrap("101|262|45|2024-11-02|2026-10-27"))
+check("corrected count and dates together",
+      m["101"]["orders"] == 262 and m["101"].get("last") == "2026-10-27", str(m["101"]))
+
 print(f"\n{passed} passed, {failed} failed")
 sys.exit(1 if failed else 0)

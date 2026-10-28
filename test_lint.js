@@ -13,6 +13,7 @@ const path = require("path");
 const ROOT = __dirname;
 const TARGETS = [
   "docs/hive-min.js",
+  "docs/hive-dates.js",
   "docs/hive-inline.js",
   "docs/hive-sweep.js",
   "docs/hive-orders-pull.js",
