@@ -272,6 +272,32 @@
     .field{flex:1}
     .topbar{margin-bottom:-24px}
   }
+  /* ---------- order projection ---------- */
+  .projctl{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
+  .seg{display:inline-flex;border:1px solid var(--line);border-radius:9px;overflow:hidden;background:#fff}
+  .seg button{border:0;background:transparent;padding:7px 11px;font:inherit;font-size:12px;
+    font-weight:600;color:var(--soft);cursor:pointer}
+  .seg button+button{border-left:1px solid var(--line)}
+  .seg button:hover{background:#F8FAFC;color:var(--ink)}
+  .seg button.on{background:#0E9F6E;color:#fff}
+  .projctl .chk{display:inline-flex;gap:6px;align-items:center;font-size:12px;
+    color:var(--soft);font-weight:600;cursor:pointer}
+  .projgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+  .pj{border:1px solid var(--line);border-radius:10px;padding:11px 12px;background:#fff}
+  .pj .k{font-size:10.5px;font-weight:700;color:var(--soft);text-transform:uppercase;letter-spacing:.4px}
+  .pj .v{font-size:23px;font-weight:800;margin:4px 0 2px;letter-spacing:-.6px}
+  .pj .s{font-size:11px;color:var(--soft);line-height:1.35}
+  .pj.g .v{color:#0E9F6E} .pj.w .v{color:#2563EB} .pj.b .v{color:#DC2626}
+  .projbar{display:flex;height:14px;border-radius:7px;overflow:hidden;margin:16px 0 9px;background:#EEF2F7}
+  .projbar i{display:block;height:100%;transition:width .25s ease}
+  .projbar i.aw{background:#0E9F6E} .projbar i.ar{background:#38BDF8}
+  .projbar i.au{background:#F59E0B} .projbar i.al{background:#DC2626}
+  .projlbl{display:flex;gap:14px;flex-wrap:wrap;font-size:11.5px;color:var(--soft);font-weight:600}
+  .projlbl b{color:var(--ink)}
+  .projlbl i{display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:5px}
+  .projfoot{margin-top:11px;font-size:11.5px;color:var(--soft);line-height:1.55;
+    border-top:1px dashed var(--line);padding-top:10px}
+  @media(max-width:900px){.projgrid{grid-template-columns:repeat(2,1fr)}}
 </style>
 </head>
 <body>
@@ -362,6 +388,44 @@
           </div>
         </div>
       </div>
+    </div>
+  </section>
+
+  <section class="card" style="margin-top:14px">
+    <div class="card-hd">
+      <h2>Order projection</h2>
+      <span class="hint" id="projHint">&mdash;</span>
+    </div>
+    <div class="card-bd">
+      <div class="projctl">
+        <div class="seg" id="projDays">
+          <button type="button" data-d="30" class="on">30 days</button>
+          <button type="button" data-d="60">60 days</button>
+          <button type="button" data-d="90">90 days</button>
+        </div>
+        <div class="seg" id="projRate">
+          <button type="button" data-r="10">10% won back</button>
+          <button type="button" data-r="25" class="on">25% won back</button>
+          <button type="button" data-r="50">50% won back</button>
+        </div>
+        <label class="chk"><input type="checkbox" id="projEst"> include estimated merchants</label>
+      </div>
+      <div class="projgrid">
+        <div class="pj"><div class="k">Projected orders</div><div class="v" id="pjTotal">&mdash;</div>
+          <div class="s" id="pjTotalSub">counted merchants, own rate</div></div>
+        <div class="pj g"><div class="k">Achieved</div><div class="v" id="pjAch">&mdash;</div>
+          <div class="s" id="pjAchSub">won back + activated</div></div>
+        <div class="pj w"><div class="k">Recoverable</div><div class="v" id="pjRec">&mdash;</div>
+          <div class="s" id="pjRecSub">if 25% of the open list returns</div></div>
+        <div class="pj b"><div class="k">Lost</div><div class="v" id="pjLost">&mdash;</div>
+          <div class="s">not interested or wrong number</div></div>
+      </div>
+      <div class="projbar" id="projBar">
+        <i class="aw" id="segWon"></i><i class="ar" id="segRec"></i>
+        <i class="au" id="segOpen"></i><i class="al" id="segLost"></i>
+      </div>
+      <div class="projlbl" id="projLbl"></div>
+      <div class="projfoot" id="projFoot"></div>
     </div>
   </section>
 
@@ -490,8 +554,10 @@
   var BIZ = RAW.map(function(r){
     return {
       id:String(r[0]), reason:r[1], name:r[2], phone:r[3],
-      orders:numOrNull(r[4]),   // lifetime orders (Hive)
-      days:numOrNull(r[5])      // active days (Hive)
+      orders:numOrNull(r[4]),      // lifetime orders (Hive)
+      days:numOrNull(r[5]),        // active days (Hive)
+      perMonth:numOrNull(r[6]),    // historical orders/month, for the projection
+      est:(r[7] === 1)             // true when that rate is inferred, not measured
     };
   });
   var BYID = {}; BIZ.forEach(function(b){ BYID[b.id]=b; });
@@ -810,6 +876,117 @@
     el("tblCount").textContent = rows.length+" of "+BIZ.length+" businesses";
   }
 
+  /* ============ order projection ============
+     Every merchant is projected forward at its own historical monthly rate.
+     Merchants are then split by what the KAM has recorded: won back/activated
+     count as achieved, not interested/wrong number as lost, everything else as
+     open and recoverable at the chosen win-back rate. */
+  var PROJ = { days:30, rate:25, est:false };
+
+  function projRate(b){
+    if(b.orders === null || b.perMonth === null) return null;
+    if(b.est && !PROJ.est) return null;
+    return b.perMonth;
+  }
+  function projBucket(st){
+    if(WINS[st]) return "won";
+    if(st === "not_interested" || st === "wrong_number") return "lost";
+    return "open";
+  }
+  function fmtOrders(v){
+    if(!v) return "0";
+    if(v < 10) return fmtAvg(v);
+    return Math.round(v).toLocaleString("en-US");
+  }
+
+  function renderProj(){
+    var months = PROJ.days / 30.44;
+    var t = { total:0, won:0, open:0, lost:0, n:0, est:0, excluded:0 };
+    BIZ.forEach(function(b){
+      var m = projRate(b);
+      if(m === null){ if(b.orders !== null) t.excluded++; return; }
+      var v = m * months;
+      t.n++;
+      if(b.est) t.est++;
+      t.total += v;
+      t[projBucket(statusOf(b.id))] += v;
+    });
+
+    var rec  = t.open * PROJ.rate / 100;   // open merchants won back
+    var risk = t.open - rec;               // open merchants still lost
+    var ach  = t.won + rec;
+    var lost = t.lost + risk;
+
+    var setV = function(id, v){ var e = el(id); if(e) e.textContent = fmtOrders(v); };
+    setV("pjTotal", t.total);
+    setV("pjAch", t.won);      // only what is actually won back, not the scenario
+    setV("pjRec", rec);        // what the chosen win-back rate would recover
+    setV("pjLost", t.lost);
+
+    var pct = function(v){ return t.total > 0 ? (v / t.total * 100) : 0; };
+    var seg = function(id, v){
+      var e = el(id);
+      if(e) e.style.width = pct(v).toFixed(2) + "%";
+    };
+    seg("segWon", t.won); seg("segRec", rec);
+    seg("segOpen", risk); seg("segLost", t.lost);
+
+    var sub = function(id, txt){ var e = el(id); if(e) e.textContent = txt; };
+    sub("pjTotalSub", t.n + " merchants, their own rate");
+    sub("pjAchSub", t.won > 0
+        ? "already won back or activated"
+        : "nothing won back yet — all " + t.n + " are still open");
+    sub("pjRecSub", PROJ.rate + "% returns · " + fmtOrders(risk) + " stays at risk");
+
+    var lbl = el("projLbl");
+    if(lbl){
+      lbl.innerHTML =
+        '<span><i style="background:#0E9F6E"></i>Won back <b>' + fmtOrders(t.won) + '</b></span>' +
+        '<span><i style="background:#38BDF8"></i>Recovered <b>' + fmtOrders(rec) + '</b></span>' +
+        '<span><i style="background:#F59E0B"></i>Still at risk <b>' + fmtOrders(risk) + '</b></span>' +
+        '<span><i style="background:#DC2626"></i>Lost <b>' + fmtOrders(t.lost) + '</b></span>';
+    }
+
+    var hint = el("projHint");
+    if(hint) hint.textContent = "next " + PROJ.days + " days · " + t.n + " of " + BIZ.length + " merchants";
+
+    var foot = el("projFoot");
+    if(foot){
+      var f = "Each merchant is projected at its own historical rate — lifetime orders ÷ months it has been ordering — " +
+              "times " + PROJ.days + " days. " + t.n + " of " + BIZ.length + " merchants qualify" +
+              (t.est ? " (" + t.est + " of them estimated)" : "") + ".";
+      if(t.excluded > 0){
+        f += " " + t.excluded + " " + (t.excluded === 1 ? "merchant has" : "merchants have") +
+             " an order count but no order dates, so no run rate can be derived — they are left out " +
+             "rather than guessed at. Tick \u201cinclude estimated merchants\u201d to add them from " +
+             "active days instead.";
+      }
+      if(t.est > 0){
+        f += " The " + t.est + " estimated merchants use active days rather than real order dates; " +
+             "on the " + (t.n - t.est) + " where both are known that method is off by about 65% at " +
+             "the median, so the totals above are a scenario, not a forecast.";
+      }
+      foot.textContent = f;
+    }
+  }
+
+  function wireProj(){
+    var d = el("projDays"), r = el("projRate"), e = el("projEst");
+    if(d) d.addEventListener("click", function(ev){
+      var b = ev.target.closest("button[data-d]"); if(!b) return;
+      PROJ.days = +b.getAttribute("data-d");
+      Array.prototype.forEach.call(d.children, function(c){ c.classList.toggle("on", c === b); });
+      renderProj();
+    });
+    if(r) r.addEventListener("click", function(ev){
+      var b = ev.target.closest("button[data-r]"); if(!b) return;
+      PROJ.rate = +b.getAttribute("data-r");
+      Array.prototype.forEach.call(r.children, function(c){ c.classList.toggle("on", c === b); });
+      renderProj();
+    });
+    if(e) e.addEventListener("change", function(){ PROJ.est = e.checked; renderProj(); });
+  }
+
   function render(){
     var tbl = el("tbl");
     var known = metricsKnown();
@@ -824,7 +1001,7 @@
           " merchants. The rest could not be counted yet and show a dash — they are not zero."
         : "";
     }
-    renderKPIs(); renderKAM(); renderCharts(); renderTable();
+    renderKPIs(); renderKAM(); renderCharts(); renderProj(); renderTable();
   }
 
   /* ============ mutations ============ */
@@ -1280,6 +1457,7 @@
   buildSelects();
   wire();
   wireSync();
+  wireProj();
   render();
   renderSyncUI();
   if(syncActive()) pullSheet(true);
