@@ -1,0 +1,1229 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Churn Win Tracker</title>
+<meta name="description" content="Churn win-back tracker for Ahmed Asif Rashid and Nuruzzaman Nahid">
+<style>
+  :root{
+    --ink:#0F172A; --muted:#64748B; --soft:#94A3B8;
+    --line:#E6EAF1; --bg:#F5F7FB; --card:#FFFFFF;
+    --green:#0E9F6E; --green-soft:#E6F6EF;
+    --blue:#2563EB; --blue-soft:#E8EFFD;
+    --amber:#B45309; --amber-soft:#FEF3C7;
+    --red:#DC2626; --red-soft:#FEE2E2;
+    --slate:#475569; --slate-soft:#EEF2F7;
+    --violet:#7C3AED; --violet-soft:#F1EAFE;
+    --radius:14px;
+    --shadow:0 1px 2px rgba(15,23,42,.04), 0 8px 24px -12px rgba(15,23,42,.12);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,
+      "Noto Sans Bengali","Nirmala UI","Vrinda","Shonar Bangla","SolaimanLipi","Kalpurush",
+      "Noto Sans",sans-serif;
+    background:var(--bg); color:var(--ink); font-size:14px; line-height:1.45;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1360px;margin:0 auto;padding:0 20px 64px}
+
+  /* ---------- top bar ---------- */
+  .topbar{
+    background:linear-gradient(120deg,#0F172A 0%,#16294a 55%,#0d3b34 100%);
+    color:#fff; padding:22px 0 26px; margin-bottom:-34px;
+  }
+  .topbar .wrap{padding-bottom:0}
+  .toprow{display:flex;align-items:flex-start;justify-content:space-between;gap:20px;flex-wrap:wrap}
+  .brand{display:flex;align-items:center;gap:13px}
+  .logo{
+    width:42px;height:42px;border-radius:12px;flex:none;
+    background:linear-gradient(140deg,#10B981,#0E9F6E);display:grid;place-items:center;
+    box-shadow:0 6px 18px -6px rgba(16,185,129,.7);
+  }
+  .logo svg{width:23px;height:23px}
+  h1{font-size:21px;font-weight:700;margin:0;letter-spacing:-.2px}
+  .sub{color:#A9B7CC;font-size:12.5px;margin-top:2px}
+  .sub b{color:#D7E1F0;font-weight:600}
+  .actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .whoami{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.09);
+    border:1px solid rgba(255,255,255,.16);padding:5px 10px 5px 6px;border-radius:10px}
+  .whoami label{font-size:11px;color:#A9B7CC;text-transform:uppercase;letter-spacing:.05em;font-weight:600}
+  .whoami select{
+    background:transparent;border:0;color:#fff;font-size:13px;font-weight:600;
+    font-family:inherit;cursor:pointer;outline:none;padding-right:2px;
+  }
+  .whoami select option{color:#0F172A}
+  .btn{
+    font-family:inherit;font-size:12.5px;font-weight:600;cursor:pointer;
+    border-radius:9px;padding:8px 12px;border:1px solid transparent;
+    display:inline-flex;align-items:center;gap:6px;transition:.15s ease;
+    white-space:nowrap;
+  }
+  .btn svg{width:14px;height:14px}
+  .btn-ghost{background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.18);color:#fff}
+  .btn-ghost:hover{background:rgba(255,255,255,.18)}
+  .btn-line{background:#fff;border-color:var(--line);color:var(--ink)}
+  .btn-line:hover{background:#F8FAFC;border-color:#CBD5E1}
+  .btn-primary{background:#0E9F6E;color:#fff}
+  .btn-primary:hover{background:#0B8A5F}
+  .btn-danger{background:#fff;border-color:#FCA5A5;color:#B91C1C}
+  .btn-danger:hover{background:#FEF2F2}
+
+  /* ---------- kpi ---------- */
+  .kpis{
+    display:grid;grid-template-columns:repeat(6,1fr);gap:12px;
+    margin-top:18px;position:relative;z-index:2;
+  }
+  .kpi{
+    background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+    padding:14px 15px;box-shadow:var(--shadow);
+  }
+  .kpi .lbl{font-size:11px;font-weight:700;letter-spacing:.045em;text-transform:uppercase;color:var(--soft);
+    display:flex;align-items:center;gap:5px}
+  .kpi .val{font-size:26px;font-weight:750;letter-spacing:-.6px;margin-top:6px;line-height:1.1}
+  .kpi .foot{font-size:11.5px;color:var(--muted);margin-top:3px}
+  .kpi.accent{background:linear-gradient(160deg,#0F172A,#17324a);border-color:#17324a;color:#fff}
+  .kpi.accent .lbl{color:#9FB3CC}
+  .kpi.accent .foot{color:#A9B7CC}
+  .dot{width:7px;height:7px;border-radius:50%;display:inline-block}
+
+  /* ---------- layout ---------- */
+  .cards{display:grid;grid-template-columns:1.45fr 1fr;gap:14px;margin-top:14px}
+  .card{
+    background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+    box-shadow:var(--shadow);overflow:hidden;
+  }
+  .card-hd{padding:14px 16px;border-bottom:1px solid var(--line);display:flex;
+    align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+  .card-hd h2{font-size:13.5px;font-weight:700;margin:0;letter-spacing:-.1px}
+  .card-hd .hint{font-size:11.5px;color:var(--soft);font-weight:500}
+  .card-bd{padding:16px}
+
+  /* ---------- KAM board ---------- */
+  .kam{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .kamcard{border:1px solid var(--line);border-radius:12px;padding:14px;background:#FCFDFF}
+  .kamhd{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+  .avatar{width:38px;height:38px;border-radius:11px;display:grid;place-items:center;
+    font-weight:700;font-size:13.5px;color:#fff;flex:none;letter-spacing:.3px}
+  .kamname{font-weight:700;font-size:13.5px;letter-spacing:-.1px}
+  .kamrole{font-size:11px;color:var(--soft);font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+  .kamstats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:11px}
+  .kamstat{background:#fff;border:1px solid var(--line);border-radius:9px;padding:7px 8px}
+  .kamstat .n{font-size:16.5px;font-weight:750;letter-spacing:-.4px;line-height:1.15}
+  .kamstat .k{font-size:10px;color:var(--soft);font-weight:700;text-transform:uppercase;letter-spacing:.04em}
+  .bar{height:7px;border-radius:99px;background:#EDF1F7;overflow:hidden;display:flex}
+  .bar i{display:block;height:100%}
+  .barlbl{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-top:6px;font-weight:600}
+  .teamline{margin-top:14px;padding-top:14px;border-top:1px dashed var(--line)}
+  .teamline .t{display:flex;justify-content:space-between;font-size:12px;font-weight:700;margin-bottom:7px}
+  .teamline .t span:last-child{color:var(--muted);font-weight:600}
+
+  /* ---------- charts ---------- */
+  .donutwrap{display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+  .donut{position:relative;width:150px;height:150px;flex:none}
+  .donut svg{transform:rotate(-90deg);display:block}
+  .donut .mid{position:absolute;inset:0;display:grid;place-content:center;text-align:center}
+  .donut .mid .big{font-size:23px;font-weight:750;letter-spacing:-.6px;line-height:1}
+  .donut .mid .sm{font-size:10.5px;color:var(--soft);font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-top:3px}
+  .legend{flex:1;min-width:190px;display:grid;gap:5px}
+  .lg{display:flex;align-items:center;gap:8px;font-size:12px}
+  .lg .sw{width:9px;height:9px;border-radius:3px;flex:none}
+  .lg .nm{color:var(--muted);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .lg .vl{font-weight:700;font-variant-numeric:tabular-nums}
+
+  .splitrow{display:flex;gap:14px;margin-top:16px;padding-top:14px;border-top:1px solid var(--line)}
+  .spl{flex:1}
+  .spl .k{font-size:11px;color:var(--soft);font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px}
+  .spl .v{font-size:13px;font-weight:700}
+  .minibar{height:7px;border-radius:99px;overflow:hidden;display:flex;background:#EDF1F7;margin-top:6px}
+  .minibar i{display:block;height:100%}
+
+  /* ---------- toolbar ---------- */
+  .toolbar{display:flex;gap:8px;align-items:center;padding:12px 16px;
+    border-bottom:1px solid var(--line);flex-wrap:wrap;background:#FBFCFE}
+  .field{position:relative;display:flex;align-items:center}
+  .field svg{position:absolute;left:9px;width:14px;height:14px;color:var(--soft);pointer-events:none}
+  input[type=search],select.tb{
+    font-family:inherit;font-size:12.5px;color:var(--ink);background:#fff;
+    border:1px solid var(--line);border-radius:9px;padding:8px 10px;outline:none;
+    transition:.15s;font-weight:500;
+  }
+  input[type=search]{padding-left:29px;width:250px}
+  input[type=search]:focus,select.tb:focus{border-color:#94A3B8;box-shadow:0 0 0 3px rgba(148,163,184,.16)}
+  select.tb{cursor:pointer;padding-right:26px;appearance:none;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394A3B8' stroke-width='2.5'><path d='M6 9l6 6 6-6'/></svg>");
+    background-repeat:no-repeat;background-position:right 8px center;background-size:12px}
+  .spacer{flex:1}
+  .count{font-size:12px;color:var(--muted);font-weight:600}
+
+  /* ---------- table ---------- */
+  .tscroll{overflow-x:auto}
+  table{width:100%;border-collapse:separate;border-spacing:0;font-size:12.5px}
+  thead th{
+    text-align:left;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;
+    color:var(--soft);background:#FBFCFE;padding:9px 12px;border-bottom:1px solid var(--line);
+    white-space:nowrap;position:sticky;top:0;z-index:1;
+  }
+  tbody td{padding:9px 12px;border-bottom:1px solid #F1F4F9;vertical-align:middle}
+  tbody tr:last-child td{border-bottom:0}
+  tbody tr:hover{background:#FAFBFE}
+  td.biz{max-width:260px}
+  .bname{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Noto Sans Bengali","Nirmala UI","Vrinda","SolaimanLipi","Kalpurush",sans-serif;font-weight:600;color:var(--ink);display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .bid{font-size:11px;color:var(--soft);font-variant-numeric:tabular-nums}
+  .pill{display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:99px;
+    font-size:11px;font-weight:700;white-space:nowrap}
+  .phone{font-variant-numeric:tabular-nums;font-weight:600;color:var(--ink);text-decoration:none;white-space:nowrap}
+  .phone:hover{color:var(--blue);text-decoration:underline}
+  .copy{background:none;border:0;cursor:pointer;color:var(--soft);padding:2px;border-radius:5px;line-height:0}
+  .copy:hover{color:var(--blue);background:var(--blue-soft)}
+  .copy svg{width:13px;height:13px}
+  select.st{font-family:inherit;font-size:11.5px;font-weight:700;border-radius:99px;
+    padding:4px 22px 4px 9px;cursor:pointer;border:1px solid transparent;appearance:none;outline:none;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2364748B' stroke-width='3'><path d='M6 9l6 6 6-6'/></svg>");
+    background-repeat:no-repeat;background-position:right 6px center;background-size:10px}
+  select.st:focus{box-shadow:0 0 0 3px rgba(148,163,184,.2)}
+  select.kam{font-family:inherit;font-size:11.5px;font-weight:600;border-radius:8px;padding:4px 6px;
+    border:1px solid var(--line);background:#fff;cursor:pointer;outline:none;max-width:112px}
+  input.note{width:100%;min-width:120px;font-family:inherit;font-size:12px;border:1px solid transparent;
+    border-radius:7px;padding:5px 7px;background:transparent;outline:none;color:var(--ink)}
+  input.note:hover{border-color:var(--line);background:#fff}
+  input.note:focus{border-color:#94A3B8;background:#fff;box-shadow:0 0 0 3px rgba(148,163,184,.14)}
+  input.note::placeholder{color:#B6C1D0}
+  .when{font-size:11px;color:var(--soft);white-space:nowrap}
+  .winrow{position:relative}
+  .winrow::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--green)}
+
+  .pager{display:flex;align-items:center;justify-content:space-between;gap:10px;
+    padding:11px 16px;border-top:1px solid var(--line);background:#FBFCFE;flex-wrap:wrap}
+  .pager .info{font-size:12px;color:var(--muted);font-weight:600}
+  .pager .ctrl{display:flex;gap:6px;align-items:center}
+  .pg{font-family:inherit;font-size:12.5px;font-weight:600;border:1px solid var(--line);background:#fff;
+    border-radius:8px;padding:6px 11px;cursor:pointer;color:var(--ink)}
+  .pg:hover:not(:disabled){background:#F1F5F9}
+  .pg:disabled{opacity:.45;cursor:not-allowed}
+  .empty{padding:44px 20px;text-align:center;color:var(--soft);font-weight:600}
+
+  .foot{margin-top:16px;font-size:11.5px;color:var(--soft);text-align:center;line-height:1.7}
+  .foot b{color:var(--muted)}
+
+  /* ---------- sync ---------- */
+  .syncpill{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:700;
+    padding:6px 10px;border-radius:99px;background:rgba(255,255,255,.1);
+    border:1px solid rgba(255,255,255,.18);color:#fff;cursor:pointer;white-space:nowrap;
+    font-family:inherit;transition:.15s}
+  .syncpill:hover{background:rgba(255,255,255,.18)}
+  .syncpill .sdot{width:7px;height:7px;border-radius:50%;background:#94A3B8;flex:none}
+  .syncpill[data-st="ok"] .sdot{background:#34D399;box-shadow:0 0 0 3px rgba(52,211,153,.22)}
+  .syncpill[data-st="syncing"] .sdot{background:#FBBF24;animation:pulse 1s infinite}
+  .syncpill[data-st="error"] .sdot{background:#F87171;box-shadow:0 0 0 3px rgba(248,113,113,.22)}
+  .syncpill[data-st="queued"] .sdot{background:#FBBF24}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+
+  .modal{position:fixed;inset:0;background:rgba(15,23,42,.55);display:none;
+    align-items:center;justify-content:center;padding:20px;z-index:80;backdrop-filter:blur(2px)}
+  .modal.open{display:flex}
+  .sheet{background:#fff;border-radius:16px;width:100%;max-width:560px;max-height:88vh;overflow:auto;
+    box-shadow:0 24px 60px -20px rgba(15,23,42,.5)}
+  .sheet-hd{padding:18px 20px 14px;border-bottom:1px solid var(--line);display:flex;
+    align-items:center;justify-content:space-between;gap:12px}
+  .sheet-hd h3{margin:0;font-size:15px;font-weight:750;letter-spacing:-.2px}
+  .xbtn{background:none;border:0;cursor:pointer;color:var(--soft);font-size:20px;line-height:1;padding:2px 6px;border-radius:7px}
+  .xbtn:hover{background:#F1F5F9;color:var(--ink)}
+  .sheet-bd{padding:18px 20px}
+  .sheet-bd label{display:block;font-size:11.5px;font-weight:700;text-transform:uppercase;
+    letter-spacing:.045em;color:var(--soft);margin-bottom:6px}
+  .sheet-bd input[type=url],.sheet-bd input[type=text]{width:100%;font-family:inherit;font-size:12.5px;
+    border:1px solid var(--line);border-radius:9px;padding:9px 11px;outline:none;font-weight:500;color:var(--ink)}
+  .sheet-bd input:focus{border-color:#94A3B8;box-shadow:0 0 0 3px rgba(148,163,184,.16)}
+  .hintline{font-size:11.5px;color:var(--muted);margin-top:7px;line-height:1.55}
+  .hintline code{background:#F1F5F9;padding:1px 5px;border-radius:4px;font-size:11px}
+  .rowbtns{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+  .syncstat{font-size:12px;font-weight:600;margin-top:12px;padding:9px 11px;border-radius:9px;
+    background:#F8FAFC;border:1px solid var(--line);color:var(--muted)}
+  .syncstat.ok{background:var(--green-soft);border-color:#BBE9D5;color:#047857}
+  .syncstat.err{background:var(--red-soft);border-color:#FBC5C5;color:#B91C1C}
+  .steps{margin:0;padding-left:18px;font-size:12px;color:var(--muted);line-height:1.75}
+  .steps li{margin-bottom:3px}
+  .steps b{color:var(--ink)}
+
+  .toast{position:fixed;left:50%;bottom:24px;transform:translate(-50%,20px);
+    background:#0F172A;color:#fff;padding:10px 16px;border-radius:10px;font-size:12.5px;font-weight:600;
+    opacity:0;pointer-events:none;transition:.22s;z-index:99;box-shadow:0 10px 30px -8px rgba(15,23,42,.5)}
+  .toast.show{opacity:1;transform:translate(-50%,0)}
+
+  @media (max-width:1180px){
+    .kpis{grid-template-columns:repeat(3,1fr)}
+    .cards{grid-template-columns:1fr}
+  }
+  @media (max-width:720px){
+    .kpis{grid-template-columns:repeat(2,1fr)}
+    .kam{grid-template-columns:1fr}
+    input[type=search]{width:100%}
+    .field{flex:1}
+    .topbar{margin-bottom:-24px}
+  }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="wrap">
+    <div class="toprow">
+      <div class="brand">
+        <div class="logo">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 17l6-6 4 4 7-7"/><path d="M14 8h6v6"/>
+          </svg>
+        </div>
+        <div>
+          <h1>Churn Win Tracker</h1>
+          <div class="sub"><b id="subCount">540</b> churned &amp; inactive merchants &middot; win-back calling campaign &middot; KAM: Ahmed Asif Rashid &amp; Nuruzzaman Nahid</div>
+        </div>
+      </div>
+      <div class="actions">
+        <button class="syncpill" id="syncPill" data-st="off" title="Google Sheet sync — click to configure">
+          <span class="sdot"></span><span id="syncPillTxt">Sheet sync off</span>
+        </button>
+        <div class="whoami">
+          <label for="whoSel">Acting as</label>
+          <select id="whoSel"></select>
+        </div>
+        <button class="btn btn-ghost" id="btnExport" title="Download this tracker as CSV">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="M7 11l5 5 5-5"/><path d="M4 21h16"/></svg>
+          Export CSV
+        </button>
+        <button class="btn btn-ghost" id="btnBackup" title="Download a full backup (assignments, statuses, notes)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/></svg>
+          Backup
+        </button>
+        <label class="btn btn-ghost" for="fileIn" style="margin:0">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21V9"/><path d="M7 13l5-5 5 5"/><path d="M4 3h16"/></svg>
+          Restore
+        </label>
+        <input type="file" id="fileIn" accept=".json,application/json" hidden>
+      </div>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <section class="kpis" id="kpis"></section>
+
+  <section class="cards">
+    <div class="card">
+      <div class="card-hd">
+        <h2>KAM performance</h2>
+        <span class="hint">Wins = won back + activated</span>
+      </div>
+      <div class="card-bd">
+        <div class="kam" id="kamBoard"></div>
+        <div class="teamline">
+          <div class="t"><span>Team progress</span><span id="teamProgTxt">0 / 540 contacted</span></div>
+          <div class="bar" id="teamBar"></div>
+          <div class="barlbl"><span id="teamPct">0% complete</span><span id="teamRemain">540 left</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-hd">
+        <h2>Outcome breakdown</h2>
+        <span class="hint" id="todayHint">&mdash;</span>
+      </div>
+      <div class="card-bd">
+        <div class="donutwrap">
+          <div class="donut">
+            <svg width="150" height="150" viewBox="0 0 150 150" id="donut"></svg>
+            <div class="mid"><div class="big" id="donutBig">0%</div><div class="sm">Contacted</div></div>
+          </div>
+          <div class="legend" id="legend"></div>
+        </div>
+        <div class="splitrow">
+          <div class="spl">
+            <div class="k">Churn list</div>
+            <div class="v" id="churnTxt">&mdash;</div>
+            <div class="minibar"><i id="churnBar" style="background:#EF4444"></i></div>
+          </div>
+          <div class="spl">
+            <div class="k">Inactive list</div>
+            <div class="v" id="inactiveTxt">&mdash;</div>
+            <div class="minibar"><i id="inactiveBar" style="background:#F59E0B"></i></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="card" style="margin-top:14px">
+    <div class="toolbar">
+      <div class="field">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+        <input type="search" id="q" placeholder="Search business, phone or ID…" autocomplete="off">
+      </div>
+      <select class="tb" id="fKam"></select>
+      <select class="tb" id="fStatus"></select>
+      <select class="tb" id="fReason">
+        <option value="">All reasons</option>
+        <option value="Churn">Churn only</option>
+        <option value="Inactive">Inactive only</option>
+      </select>
+      <div class="spacer"></div>
+      <span class="count" id="tblCount"></span>
+      <button class="btn btn-line" id="btnClearFilters">Clear filters</button>
+    </div>
+    <div class="tscroll">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:34px">#</th>
+            <th>Business</th>
+            <th>Phone</th>
+            <th>Reason</th>
+            <th>Assigned KAM</th>
+            <th>Outcome</th>
+            <th>Notes</th>
+            <th>Updated</th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+    <div class="pager">
+      <div class="info" id="pgInfo"></div>
+      <div class="ctrl">
+        <button class="pg" id="pgPrev">Prev</button>
+        <span class="info" id="pgNum">1 / 1</span>
+        <button class="pg" id="pgNext">Next</button>
+      </div>
+    </div>
+  </section>
+
+  <div class="foot">
+    Saved automatically in this browser (<b>localStorage</b>). Use <b>Backup</b> on each device and <b>Restore</b> to merge —
+    newest update wins per business. Data source: Hive active-business export of the churn &amp; inactive sheet.
+  </div>
+</div>
+
+<div class="modal" id="syncModal">
+  <div class="sheet">
+    <div class="sheet-hd">
+      <h3>Google Sheet sync</h3>
+      <button class="xbtn" id="syncClose" aria-label="Close">&times;</button>
+    </div>
+    <div class="sheet-bd">
+      <label for="syncUrl">Apps Script web-app URL</label>
+      <input type="url" id="syncUrl" placeholder="https://script.google.com/macros/s/…/exec" spellcheck="false">
+      <div class="hintline">
+        Every outcome, KAM and note change is written straight into
+        <b>Churn &amp; Inactive merchant List</b> (columns E–H), and the dashboard pulls the
+        other KAM's updates back.
+      </div>
+
+      <div class="syncstat" id="syncStat">Not connected — paste the web-app URL above.</div>
+
+      <div class="rowbtns">
+        <button class="btn btn-primary" id="syncSave">Save &amp; connect</button>
+        <button class="btn btn-line" id="syncNow">Sync now</button>
+        <button class="btn btn-line" id="syncPushAll">Push all local</button>
+        <button class="btn btn-danger" id="syncDisconnect">Disconnect</button>
+      </div>
+
+      <div style="margin-top:18px;padding-top:16px;border-top:1px solid var(--line)">
+        <label style="margin-bottom:8px">One-time setup</label>
+        <ol class="steps">
+          <li>Open the sheet → <b>Extensions → Apps Script</b></li>
+          <li>Paste the <code>Code.gs</code> from this project's <code>apps-script/</code> folder</li>
+          <li><b>Deploy → New deployment → Web app</b></li>
+          <li>Execute as <b>Me</b>, Who has access <b>Anyone</b></li>
+          <li>Copy the <code>/exec</code> URL and paste it above</li>
+        </ol>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script id="biz-data" type="application/json">[["359","Churn","Aladeener Cherag","8801836102283"],["24461","Churn","মানব কল্যাণ","8801888757391"],["15954","Churn","ReviewHunt BD","8801902218358"],["23610","Churn","Deshi Drip","8801628955274"],["26277","Churn","Bulet","8801766237935"],["27284","Churn","MT Shopping","8801788400545"],["2754","Churn","KISHANI","8801771222270"],["13871","Churn","Mirror world","8801713123381"],["24995","Churn","kashmira 2.0","8801309312448"],["23717","Churn","AR Baby Cloud","8801632971014"],["25819","Churn","Rupali ava","8801905111078"],["25827","Churn","Khela Pagla","8801679453890"],["20658","Churn","PRESTIGIA","8801518378431"],["10176","Churn","Holy Touch","8801941565896"],["23212","Churn","Fit Bangla","8801601441880"],["23565","Churn","Stylica","8801709284291"],["25950","Churn","ARBOX BD","8801836844284"],["25145","Churn","Rockin Fashion","8801629701909"],["27122","Churn","Organic Shop","8801824968074"],["13822","Churn","Life Care","8801625910404"],["24580","Churn","Mahi Fashion House","8801707797737"],["23011","Churn","Baby kiddz","8801858648857"],["6621","Churn","NEXT MART","8801713960391"],["25257","Churn","MiniMuse By Inaaya","8801701041975"],["25974","Churn","Trasted by bd","8801758115251"],["23427","Churn","মরিঙ্গা গেইন","8801351573184"],["11990","Churn","Object D’art","8801778620666"],["22670","Churn","China Health Care","8801843481608"],["5594","Churn","Rayon","8801712071078"],["13287","Churn","চিঠি ঘর","8801768343017"],["24366","Churn","শখের গেজেট","8801994319739"],["24409","Churn","Babies Haven","8801916061560"],["11658","Churn","The Decor Story","8801738012117"],["20801","Churn","ARAVEL","8801892934683"],["25086","Churn","Korean Online","8801350655560"],["12478","Churn","GIFT GRAB","8801776490123"],["21916","Churn","KPGoldenlife","8801945889383"],["1827","Churn","Sweet Kiddz","8801645822020"],["25953","Churn","Bc shop","8801735490939"],["21513","Churn","Neuroclean","8801865845321"],["25762","Churn","NISHCLO","8801740126434"],["27080","Churn","Wasifinity","8801812509308"],["24108","Churn","Sanny Three pic","8801760844816"],["24796","Churn","Healinic","8801962563999"],["8469","Churn","Root corner","8801325729594"],["6444","Churn","Homey Mart","8801833394634"],["25214","Churn","Nolok","8801576605623"],["3483","Churn","UMRAF","8801758870061"],["25361","Churn","Elix","8801796246023"],["25436","Churn","Clothing Apparel Ox","8801888125638"],["27137","Churn","Desire Basket","8801813383906"],["21517","Churn","Charlie Bd","8801760081248"],["19051","Churn","zohantex","8801846622025"],["25561","Churn","Samastha's Beauty Zone","8801792434506"],["10535","Churn","Raw Stitch","8801924214837"],["26650","Churn","FIVE LINE","8801917746666"],["21960","Churn","Surprise Collection","8801515209328"],["26442","Churn","Arrow Express","8801615603695"],["25660","Churn","Muyaj organic","8801318207858"],["12194","Churn","Technen","8801410200905"],["18262","Churn","SM cosmetic","8801753761672"],["26043","Churn","সানজিদা ফ্যাশন 2:0","8801345512182"],["14292","Churn","Prijosree- প্রিজশ্রী","8801313558175"],["14286","Churn","Materials zone","8801821458010"],["25937","Churn","Gadget & Guide","8801772306676"],["13230","Churn","Voyd Men","8801580662601"],["26076","Churn","Golden Lion","8801306732911"],["1783","Churn","Gadget Nova","8801611111856"],["2942","Churn","Atal Food","8801718039498"],["7072","Churn","Dipetane Bangladesh","8801860428694"],["26598","Churn","Level Up","8801762830046"],["22874","Churn","SA Enterprise","8801600451494"],["24807","Churn","Urban Deshi","8801407329733"],["15335","Churn","Bangla Eco","8801577229100"],["24090","Churn","Tijarah Corporation","8801611500067"],["21506","Churn","মেডিসিন কর্নার 1","8801717946353"],["24501","Churn","Bd Shop","8801750457428"],["12276","Churn","Action Mart","8801618625058"],["10033","Churn","Hi Birdy & Company","8801788731005"],["24969","Churn","nawabi shop","8801717498633"],["25844","Churn","Shakil BD","8801333203175"],["24602","Churn","Erfan's Shop","8801759151355"],["27528","Churn","Medicine Shop","8801842613957"],["10758","Churn","Alyshop","8801870369409"],["25279","Churn","Diet Store","8801754308424"],["4117","Churn","Choosett","8801400570011"],["9444","Churn","JIFFHUT","8801576771508"],["16938","Churn","Tayyibat","8801540095854"],["23963","Churn","Ab Online BD 50","8801793923386"],["12348","Churn","online BD shop 120","01326882802"],["25275","Churn","Traditional & Trendy","8801980369124"],["20953","Churn","Guru Ji Hub","8801770761979"],["26496","Churn","SR SHOP","8801828349407"],["26817","Churn","OneCart BD","8801572917604"],["24635","Churn","Ilori By S","8801317338335"],["17947","Churn","Never-Basic.store","8801781017738"],["13823","Churn","Madicine Shop","8801335750526"],["5719","Churn","Alo Artisan","8801719879434"],["26171","Churn","MK Borka Mart","8801886106856"],["25748","Churn","succulent bazaar","8801602581132"],["23269","Churn","Tazkizone","8801943537797"],["26601","Churn","SR SHOP 2","8801603311071"],["2031","Churn","Offline BD","8801708011234"],["7004","Churn","0 point","8801774291115"],["11632","Churn","Shari Souda Sirajganj","8801732691253"],["22880","Churn","Zaynoor Shop","8801954279325"],["26666","Churn","হেলথ সিটি","8801778821865"],["15024","Churn","fashoin gallery by mehu","8801789124786"],["21853","Churn","BANGLADESH HAUL","8801989722265"],["23445","Churn","purlybd.com","8801918583766"],["20797","Churn","pifman","8801713613193"],["25740","Churn","cute kids","8801952852451"],["19943","Churn","Van Gari","8801930625675"],["16252","Churn","SSD jone","8801969020870"],["14480","Churn","Nowrin Fashion Gallery","8801705914385"],["24534","Churn","Salute fashion","8801777535433"],["20489","Churn","Ayora","8801600233777"],["8310","Churn","Soash","8801685060975"],["12335","Churn","Omor Faruq collection","8801629175601"],["24481","Churn","Wears & Gears","8801622650039"],["3778","Churn","H & H Business solution","8801324088335"],["25114","Churn","Organic Valley Khulna","8801917806063"],["24907","Churn","Zara & Sara","8801974444801"],["26067","Churn","Fiona Style","8801746522944"],["9484","Churn","Sabsan trend","8801631234383"],["26778","Churn","Coxsbazarshop.com","8801813037870"],["14970","Churn","Health care BDIT","8801344233447"],["17663","Churn","Bag Koi","8801620234181"],["24320","Churn","New mom & baby corner","8801320652854"],["22245","Churn","SmartNest BD","8801577550947"],["25984","Churn","ALLshop BD","8801326243520"],["14134","Churn","S.N MART","8801894206904"],["23843","Churn","Dense & Bounce","8801987546260"],["20427","Churn","Dial Story","8801780615421"],["27163","Churn","Intimate Store","8801827420059"],["2759","Churn","Mas enterprises","8801401344014"],["24998","Churn","Pukuchu","8801610785077"],["19027","Churn","Grameen Nakshi","8801710960550"],["25851","Churn","Anzum BD","8801771314135"],["15395","Churn","CITY WALK BD","8801819496662"],["25936","Churn","দেশি পরান/Unique Shop","8801625577108"],["10257","Churn","eDorji","8801701080875"],["21740","Churn","Rs Gadgets Store","8801766922559"],["23906","Churn","Avix BD","8801708615939"],["12137","Churn","Rose crafting","8801839440414"],["17901","Churn","International Online Journal Hub","8801516786983"],["19461","Churn","Chowdhury Enterprise","8801771242914"],["24638","Churn","Daibetis Care","8801329049526"],["24126","Churn","Royal Honey BD","8801814741979"],["23962","Churn","Raspberry Pi","8801772027766"],["26945","Churn","Reva Wonder","8801326602521"],["25533","Churn","Aura Decor BD","8801830067856"],["24460","Churn","ORIGINA","8801715036374"],["23970","Churn","Hayaro","8801629412737"],["19496","Churn","ICase","8801737868655"],["11626","Churn","শাড়ি কথা","8801608179715"],["20910","Churn","ALINE WEAR","8801861151577"],["6853","Churn","Kharh","8801601379556"],["17527","Churn","CGMP SHOP","8801804181754"],["24682","Churn","Ovoniia medical centre","8801885146620"],["4177","Churn","Khorid","8801858534597"],["15721","Churn","TMC Organic","8801341647586"],["12501","Churn","Aleya","8801581783269"],["8740","Churn","Mehjan","8801805226550"],["18255","Churn","DEER & DOE","8801511361477"],["24935","Churn","Nature Bazzar","8801343326066"],["24909","Churn","Timeless Touches","8801730906418"],["9280","Churn","Rain Lily","8801842167708"],["17688","Churn","আদনান ফ্যাশন","8801918925257"],["12202","Churn","Herb Life Bangladesh","8801767740879"],["25094","Churn","Offer Poka","8801973120550"],["20192","Churn","Rajkonna Jewellery","8801795313511"],["794","Churn","Elite Hub","8801867115596"],["14300","Churn","One-man Collection's","8801978677690"],["18277","Churn","ZAIR","8801783757580"],["9697","Churn","BD Basket","8801918282804"],["8643","Churn","Fieora","8801970137336"],["25860","Churn","Ovoniia Officials","8801879850669"],["24407","Churn","Inner Haven BD","8801611756299"],["28491","Churn","online shop","8801881962913"],["5053","Churn","FREEDOM BD SHOP","8801791930043"],["25101","Churn","One Stop Bazar","8801904343449"],["17205","Churn","UniqoBD","8801685685700"],["21404","Churn","Shwaad – BD","8801677266742"],["4741","Churn","Deshhat.com","8801780696969"],["24550","Churn","ওভোনিয়া বায়ু কেয়ার","8801866703472"],["23898","Churn","Green Life Solutions","8801971115009"],["23691","Churn","Mehndi By Sumaiya","8801626291700"],["5558","Churn","You & Baby","8801670504110"],["26407","Churn","Online Natrual shop602","8801881497945"],["28156","Churn","ন্যাচারাল শপ ৫০০","8801967003023"],["29376","Churn","SharkYla","8801954857574"],["27952","Churn","Safe bd","8801770019872"],["28689","Churn","Nazmul Fashion","8801998252987"],["20751","Churn","Humty Dumty","8801608039651"],["1653","Churn","Beautybooth","8801872350077"],["25372","Churn","Xiroo","8801828569660"],["28187","Churn","online bd shop 140","8801304806709"],["28129","Churn","pitha owalir pitha owala","8801722212722"],["27816","Churn","Book Owls BD","8801708612908"],["27787","Churn","Bd Smart Buy","8801616670075"],["27631","Churn","মেডিসিন হাউস","8801721371970"],["27607","Churn","E Gadget","8801773820580"],["28244","Churn","International Online Journal Hub","8801410180869"],["28316","Churn","Herbolife","8801314623147"],["28773","Churn","Royalzo","8801785652257"],["28898","Churn","Jolabd","8801623025326"],["29079","Churn","online business55","8801309409441"],["30399","Churn","কৈতান","8801337592110"],["31739","Churn","Royal Honey BD","8801772801106"],["20876","Churn","অংশুলা","8801720001588"],["24709","Churn","Perfumiosa","8801905783194"],["23202","Churn","Gift Patan","8801839677799"],["4286","Churn","Taiba fashion house 2.0","8801843426569"],["5542","Churn","Glow beauty queen","8801798146499"],["27648","Churn","Suhasini Official","8801851451271"],["8773","Churn","কৈতান","8801822119847"],["22112","Churn","Daraj.bd","8801824041970"],["24523","Churn","Parsonal Item","8801402968432"],["28648","Churn","ONLINE SHOP SNHBD","8801333708843"],["32374","Churn","Online Shop","8801575297243"],["29663","Churn","Shuveccha","8801705113080"],["28280","Churn","SMR Shop","8801959609572"],["34376","Churn","online shop","8801978714655"],["14772","Churn","Levelup Academy","8801346594840"],["18386","Churn","RS Leather BD","8801709306560"],["8365","Churn","HAWLADER LIFESTYLE","8801302636367"],["26420","Churn","Men's Bd","8801613507616"],["18934","Churn","Fly Store BD","8801969146446"],["11293","Churn","Jungleebee.com","8801628025271"],["10348","Churn","Smart Life For Women","8801603697030"],["13076","Churn","BANAI","8801799310043"],["10772","Churn","StyleX","8801315619189"],["9883","Churn","Gadget House","8801627313608"],["26573","Churn","COAL Cookware","8801973081959"],["14251","Churn","Asthma relife","8801764722855"],["5411","Churn","World Of Watches","8801768159124"],["669","Churn","Better Bliss","8801677178336"],["9145","Churn","Bouquet tales by Airin","8801787563381"],["13089","Churn","Ruhi's Craft","01636090607"],["26093","Churn","Gadgetean","8801993366949"],["12949","Churn","MyCartBD","8801969769691"],["7721","Churn","Sifat Online Shop","8801732161749"],["11635","Churn","Banggalir Oitijjo Tater Shari","8801750467091"],["24167","Churn","Diceymio","8801302756359"],["20594","Churn","SUNNAH COLLECTION","8801617054361"],["18801","Churn","Haya","8801635511128"],["29084","Churn","rublex_clothes","8801639220592"],["21258","Churn","steprova","8801349277390"],["14527","Churn","AF Mart BD","8801758535756"],["28721","Churn","Crockerise Shop  Bd","8801902859397"],["8748","Churn","Naturemix","8801720866187"],["27974","Churn","Mac'S group & co","8801894099658"],["27755","Churn","Smell hub","8801318933774"],["27667","Churn","Kingdom of Dessert","8801580972469"],["27590","Churn","Experto ReWell","8801778972910"],["27914","Churn","New Crop Top","8801734549568"],["28375","Churn","Ripple Perfumery","8801886897855"],["28487","Churn","sanacroshays","8801944961980"],["28514","Churn","haatkotha","8801976355862"],["28700","Churn","FAYSAL TELECOM","8801904404676"],["28731","Churn","Handmade Journey","8801888020103"],["28738","Churn","HealthDrop","8801785735683"],["28982","Churn","Classics - Simple But Solid","8801613960821"],["29025","Churn","অঙ্গনাঙ্গন","8801798598277"],["29160","Churn","অনলাইন শপ","8801793205743"],["29271","Churn","Merchant","8801531991109"],["29462","Churn","পিঠা পুরাণ","8801618842167"],["29693","Churn","online Shop58","8801306585850"],["29757","Churn","ATBH SHOPPERS","8801811145764"],["29782","Churn","Ridoy990","8801568573211"],["29787","Churn","Beauty vibe","8801872182575"],["29838","Churn","The Asmistry","8801863406558"],["29892","Churn","AuraVio","8801632210089"],["29919","Churn","JERSEVO","8801859988175"],["30091","Churn","Zyrah Fashion Store","8801345561426"],["30333","Churn","natural care","8801758007247"],["30362","Churn","imran","8801743151414"],["30572","Churn","অথেনটিক শপার","8801682903554"],["30589","Churn","Ladies Bag and Accosories","8801307167181"],["30591","Churn","নুরানি হালাল ঘর","8801749764838"],["30595","Churn","Miles of styles","8801897996413"],["30621","Churn","Rawan Nur","8801717778167"],["30632","Churn","Malaysia shop","8801936165759"],["30648","Churn","JS Craft","8801326122302"],["30707","Churn","Outfits by Moni","8801771938940"],["30767","Churn","Richman","8801633003713"],["25694","Churn","Rewron BD","8801853966423"],["27910","Churn","Aura Stride","8801949155155"],["19353","Churn","Platinum Moto Care","8801970406425"],["24763","Churn","Glowink","8801687007704"],["27482","Churn","Elora Gems 1","8801882189189"],["11592","Churn","Fair India Mecical","8801758096646"],["7563","Churn","Blue berry","8801854094623"],["25274","Churn","Online Bazar","8801349325080"],["7126","Inactive","TS Beauty Glow","8801771261818"],["7698","Inactive","Safe way","8801835839754"],["8794","Inactive","Zuberee.com","8801674717356"],["1925","Inactive","Ador-আদর","8801752840306"],["12454","Inactive","Fahim Fragrance","8801407971045"],["24079","Inactive","গঞ্জের হাট","8801605676219"],["3917","Inactive","Aesthetic Shop ( cutie essentials)","8801627576394"],["21976","Inactive","MumLyn.com","8801760303267"],["24117","Inactive","7 Bangladesh","8801930004009"],["26181","Inactive","pasheasi.com","8801340115586"],["26607","Inactive","Private Care BD","8801865726591"],["21914","Inactive","Gadget Store","8801410914507"],["26786","Inactive","sotota medicin","8801344733504"],["17541","Inactive","Ashtok :অষ্টক","8801648051594"],["13404","Inactive","Momin pharmacy","8801712518044"],["15139","Inactive","Orju","8801572948224"],["21874","Inactive","Zepz","8801405790954"],["15564","Inactive","Afnan shopping bd","8801611721634"],["18303","Inactive","BK Asad Point","8801965642665"],["18091","Inactive","EZHAN","8801951108096"],["2536","Inactive","Tsaiko Labs","8801720442144"],["25849","Inactive","dook","8801981465955"],["9171","Churn","Dina's Craft","8801842381867"],["16582","Inactive","ZR Collection","8801919036878"],["25000","Churn","Tasnim Aurthy","8801776035023"],["23292","Inactive","Gadget Mine","8801612933361"],["5013","Inactive","Online Park","8801854432212"],["20925","Churn","Beauty Shop","8801892539255"],["28647","Inactive","EVER ESSENCE","8801715515153"],["824","Inactive","Trendy Belle","8801681467141"],["28309","Inactive","Glimmeria","8801349829416"],["28133","Inactive","Spoiler Alert","8801521306837"],["27996","Inactive","Online Bd shop","8801706983922"],["27986","Inactive","Thrift Closet BD","8801780649917"],["27804","Inactive","Qvaly.BD","8801885007158"],["27670","Inactive","LikeyShop","8801916370205"],["27604","Inactive","Akhi Collection","8801780942055"],["28570","Inactive","Lumiere","8801710032858"],["28686","Inactive","Amader lokkho","8801906347908"],["28709","Churn","পাইকারি বাজার","8801611638727"],["28742","Inactive","KiddyNova","8801915891478"],["28958","Inactive","NJ Gadget house","8801626479121"],["29242","Inactive","মা বাবা হোমিও হাউস","8801302037814"],["29305","Inactive","Nasreen Collection","8801410658135"],["29495","Inactive","Ektu Alada","8801913126731"],["29511","Inactive","kings aroma","8801315410287"],["29577","Inactive","Glamour n Glossy","8801905287568"],["29688","Inactive","goodlifebd247.com","8801714018448"],["29991","Churn","Rio","8801616849507"],["30132","Inactive","বই ঘর","8801909125022"],["30216","Inactive","Anila's Craft space","8801752424036"],["30250","Inactive","RT BATTERY","8801821639590"],["30293","Inactive","Ratul Group Limited","8801939142493"],["30308","Inactive","Solvyn","8801570273144"],["30313","Inactive","Tech Veltro","8801830222121"],["30340","Inactive","Billo Bazar","8801738702055"],["30345","Inactive","Bir online","8801853255343"],["30347","Inactive","Inaya collections","8801307547807"],["30404","Inactive","Tea Voyage","8801346068603"],["30556","Inactive","S M Bazar","8801772384652"],["30634","Churn","blaznate2","8801834198853"],["30657","Churn","নকশি কাঁথা","8801402538237"],["30673","Inactive","SK TCG","8801604532166"],["30689","Inactive","Sourov Digital shol","8801791684603"],["30704","Inactive","Zlveen","8801876548317"],["30745","Inactive","Daisy Twinkle","8801969863598"],["30746","Churn","Jareefah Fancy corner","8801521376394"],["27772","Churn","Ramani Fashion","8801811841821"],["30237","Inactive","The Coffee Draft","8801945036949"],["30248","Inactive","eliora.bd","8801979046910"],["27455","Inactive","Jhotpot Solutions","8801829143731"],["29743","Inactive","Evergreen Care BD","8801577345567"],["30800","Inactive","Aaroshi Enterprise","8801838374717"],["30854","Churn","Style Squad","8801703076451"],["30974","Inactive","tecbazarbd","8801857006209"],["30981","Churn","Md Masud","8801352480052"],["30999","Churn","natural mela","8801603284797"],["31094","Churn","SB Gallery","8801784944126"],["31106","Inactive","Choice BD Bangla","8801349872548"],["31142","Inactive","Shikdar Luxury","8801643250052"],["30857","Inactive","আশা বিডি অনলাইন","8801748017753"],["31355","Churn","MergeIn","8801707614403"],["31381","Inactive","Cozy Home","8801400100292"],["31442","Inactive","Venaura","8801840116857"],["31457","Inactive","KR organic BD","8801846897133"],["31542","Inactive","Ruevia","8801903534515"],["31566","Inactive","The trendy depot","8801710531319"],["31571","Inactive","Knowledge Hunter","8801790217914"],["31599","Inactive","Silver Peripherals","8801817516097"],["31695","Inactive","Zevrial","8801751156833"],["31718","Inactive","Anonna &Co","8801951409476"],["31727","Inactive","zellonii","8801847358463"],["31768","Inactive","বিচিত্রা","8801966445492"],["31780","Inactive","Choicely","8801970648057"],["31683","Inactive","Mithela's creation","8801796508032"],["31764","Inactive","PRIMEFASHION","8801627976343"],["31855","Inactive","Pahari ponner samahar","8801611996893"],["31866","Inactive","White Rose fashion & style","8801706316709"],["31984","Inactive","Best Fast Medical Service","8801601340556"],["31393","Inactive","Nobogear","8801612626172"],["31453","Inactive","Disha Eye Care","8801716236999"],["31607","Inactive","SAHR","8801580647486"],["31868","Inactive","organic Food Zone","8801623386699"],["32013","Inactive","jayan's mamma","8801410317244"],["32033","Inactive","books","8801615863975"],["32178","Inactive","Moone Studio","8801973193908"],["32180","Inactive","Farhana exclusives by nupur","8801640566308"],["32369","Inactive","box","8801334435201"],["32380","Inactive","Luxy Jewels","8801314486321"],["32389","Inactive","The Pocket Gem","8801882038272"],["31382","Inactive","Mystery Box","8801860771598"],["32020","Inactive","Alobati.co","8801611585481"],["32066","Inactive","Boys Gift Shop","8801627572881"],["23214","Inactive","Biggan Bits","8801304416246"],["23832","Inactive","online shipping bd","8801893472829"],["30959","Inactive","Crochet By Roza","8801829079172"],["32031","Inactive","golwfinit","8801935339812"],["32433","Inactive","Aquaesthetic","8801943910039"],["32505","Inactive","manfa","8801580717942"],["32531","Inactive","HDC Homoeo hospital","8801950066680"],["32553","Churn","Sonali Uthon","8801778741529"],["32669","Inactive","Shakin Mobile Relife","8801614546529"],["32707","Inactive","RupKotha","8801863159517"],["32724","Churn","Style With Faith","8801877307480"],["32748","Inactive","Her Vibe","8801603577471"],["32833","Inactive","Zikrahmart","8801919908618"],["32840","Inactive","sitara collection","8801747241487"],["32862","Inactive","Bunon Fashion House","8801405703371"],["32914","Inactive","Chattola Clothing","8801882459828"],["32920","Inactive","Aurelia's Core","8801876982583"],["32989","Inactive","পোষাক পয়েন্ট","8801743688929"],["33024","Inactive","Celestia Blushè","8801714202090"],["33061","Inactive","duashopbd","8801911035204"],["33129","Inactive","rock star","8801581571421"],["33239","Inactive","Hennalogy","8801646790113"],["31455","Inactive","Leyora","8801779351658"],["31586","Inactive","GlowBerry","8801405368348"],["31800","Inactive","SORFAA","8801870006360"],["32410","Inactive","Inkify BD","8801972009192"],["32767","Inactive","খোশখেয়াল","8801746418343"],["32897","Inactive","Z&S Baby Boutique","8801681496109"],["32909","Inactive","Arotcitymart","8801353221593"],["32974","Inactive","MTR GLOBAL","8801346353407"],["32987","Inactive","পন্যঘর","8801704242713"],["33037","Inactive","চুড়িওয়ালি","8801848368431"],["33159","Inactive","Afrin Fashion","8801760363322"],["32760","Inactive","FT Smart Shop","8801540512971"],["31872","Inactive","Ahanafthreebpicc","8801922352966"],["32296","Inactive","SS BLOOM","8801795778789"],["32414","Inactive","Your Fabric","8801628805883"],["33186","Inactive","Zunkies","8801686520207"],["33390","Inactive","AID SHOP","8801991277907"],["33391","Inactive","MOLLA","8801341003489"],["33394","Inactive","Zynox Bd","8801979697166"],["33398","Inactive","Xerqo","8801704752262"],["33402","Inactive","SheShine","8801897293613"],["33413","Inactive","Herbia","8801788331555"],["33434","Inactive","BunBae.plush","8801984198137"],["33460","Inactive","Thailand shop","8801902005373"],["33463","Inactive","Closet by Sraboni","8801834079256"],["33483","Inactive","Taqdeer sports","8801646504602"],["33507","Inactive","Fariya","8801329987088"],["33545","Inactive","Photoobie","8801628033201"],["33567","Inactive","miniature shop BD","8801718539574"],["33568","Inactive","Kinboki","8801352374242"],["33570","Inactive","Sheed","8801352119990"],["33602","Inactive","fashion point","8801984732882"],["33606","Inactive","S.B Corporation","8801866277812"],["33620","Inactive","Blessiva Naturals","8801537461293"],["33622","Inactive","100% Original","8801751916875"],["33632","Inactive","All For One","8801971402386"],["33650","Inactive","Glow o’clock by Mahi","8801976632533"],["33656","Inactive","The Trendy Edit By Aporna","8801310551032"],["33669","Inactive","বনলতা-Bonolota","8801792597391"],["33675","Inactive","Center Point","8801878724181"],["33693","Inactive","Mohammad","8801316387152"],["31007","Inactive","বাইক বন্ধু","8801604147793"],["33558","Inactive","Khidmah Daoya Center","8801636068299"],["33643","Inactive","Sunflower knots","8801767678051"],["33688","Inactive","Masud  natori premium food","8801761458021"],["33799","Inactive","বই বাড়ি","8801325954374"],["33815","Inactive","Sumiya's dessert world","8801608086308"],["32945","Inactive","Creaxis Medical Systems","8801317187438"],["33818","Inactive","MAD SCENT","8801760781918"],["33848","Inactive","For You","8801993297180"],["32943","Inactive","Safe For Life","8801724537913"],["33179","Inactive","Insha shop","8801963700324"],["31377","Inactive","Al-amanah store","8801976124855"],["31733","Inactive","Pet Bazar","8801968016079"],["33829","Inactive","Barakah Dry Fruits","8801866682389"],["33866","Inactive","Online Business","8801701794119"],["33886","Inactive","EcomWave","8801643303768"],["33910","Inactive","Niyamah Lifestyle","8801762133130"],["33953","Inactive","সতর-satr","8801679175575"],["31171","Inactive","Shariyar's Fabrics","8801614415229"],["33758","Inactive","Alfi Rahman","8801920515473"],["33433","Inactive","Saimon Ahmed","8801307128445"],["33835","Inactive","নকশীআচার","8801825150639"],["33843","Inactive","Amaya Food and Beverage Ltd","8801895602296"],["31435","Inactive","Sunnah Collection Court Bazar","8801614353536"],["32386","Inactive","Mim's Dream Book","8801636477792"],["33038","Inactive","নৈশন্য - NAYSHONNO","8801826545345"],["33952","Inactive","sumona's canvas","8801679882747"],["34012","Inactive","House Need","8801877632303"],["32154","Inactive","HerLuxe BD","8801602629363"],["33980","Inactive","Sync","8801984241104"],["31508","Inactive","ALL STAR","8801978533099"],["32532","Inactive","Arshu","8801314907890"],["32874","Inactive","carry charm","8801916397078"],["33887","Inactive","Blush & Beauty With Sumu","8801629571726"],["34119","Inactive","bhola online shopping","8801820977484"],["34134","Inactive","HR Shop","8801301842202"],["31133","Inactive","HappyMuse","8801612215510"],["31921","Inactive","Ad'ha","8801521400220"],["33086","Inactive","SI Fashion","8801356645665"],["33421","Inactive","Arshia's shop","8801300034230"],["33849","Inactive","AvirasbyA","8801842099904"],["33933","Inactive","Tamanna's Collection","8801735951932"],["34074","Inactive","Tyncluded","8801703291314"],["34084","Inactive","Hridoy","8801929192128"],["28144","Inactive","Clothing","8801718794137"],["30549","Inactive","KHAN BAY INTERNATIONAL","8801836132870"],["34256","Inactive","shalman shop","8801346648088"],["34341","Inactive","Jony Saree","8801636278491"],["34348","Inactive","mh tread Corporation","8801816695903"],["34358","Inactive","M/S Alif automobiles","8801819821840"],["30735","Inactive","Asmisha Collection","8801822081025"],["33396","Inactive","ALAMINO","8801638795144"],["27771","Inactive","রঙিন ছোঁয়া","8801971879323"],["29181","Inactive","alifas_crochet_atelier","8801871650856"],["29296","Inactive","Gangchilmart","8801711076144"],["29895","Inactive","Corestyle BD","8801741384258"],["30492","Inactive","Moodbox","8801314140224"],["34395","Inactive","Mostafa Agro Farm","8801825467961"],["34401","Inactive","INARA Candles amd cemora","8801876622761"],["34299","Inactive","STYLO FASHION","8801303542653"],["34016","Inactive","Continental Fragrance","8801327119550"],["31968","Inactive","Daily Hub","8801881108703"],["32263","Inactive","Sp fashion house","8801773950792"],["34034","Inactive","Shafat's Shop","8801616384114"],["34048","Inactive","korean Global House","8801633323360"],["30838","Inactive","N R FASHION","8801839033968"],["33627","Inactive","Tiraz","8801755913173"],["34197","Inactive","Prime Choice","8801738665315"],["34564","Inactive","Clothing","8801608863250"]]</script>
+<script>
+(function(){
+  "use strict";
+
+  /* ============ constants ============ */
+  var KAMS = [
+    { id:"ahmed", name:"Ahmed Asif Rashid",  short:"AA", color:"#2563EB" },
+    { id:"nahid", name:"Nuruzzaman Nahid",   short:"NN", color:"#0E9F6E" }
+  ];
+  var STATUSES = [
+    { id:"pending",       label:"Pending",       fg:"#475569", bg:"#EEF2F7" },
+    { id:"no_answer",     label:"No answer",     fg:"#B45309", bg:"#FEF3C7" },
+    { id:"callback",      label:"Callback",      fg:"#2563EB", bg:"#E8EFFD" },
+    { id:"won_back",      label:"Won back",      fg:"#0E9F6E", bg:"#E6F6EF" },
+    { id:"activated",     label:"Activated",     fg:"#047857", bg:"#D6F2E5" },
+    { id:"not_interested",label:"Not interested",fg:"#DC2626", bg:"#FEE2E2" },
+    { id:"wrong_number",  label:"Wrong number",  fg:"#7C3AED", bg:"#F1EAFE" }
+  ];
+  var WINS = { won_back:1, activated:1 };
+  var S_BY_ID = {}; STATUSES.forEach(function(s){ S_BY_ID[s.id]=s; });
+  var NUMWIN = { won_back:1, activated:1, not_interested:1, wrong_number:1 };
+
+  var RAW = JSON.parse(document.getElementById("biz-data").textContent);
+  var BIZ = RAW.map(function(r){ return { id:String(r[0]), reason:r[1], name:r[2], phone:r[3] }; });
+  var BYID = {}; BIZ.forEach(function(b){ BYID[b.id]=b; });
+
+  var LS_KEY = "cwt.v1";
+  var PER_PAGE = 50;
+
+  /* ============ state ============ */
+  var state = load();
+
+  function defaultAssignments(){
+    // alternate so both KAMs get an even split with a similar Churn/Inactive mix
+    var a = {};
+    BIZ.forEach(function(b,i){ a[b.id] = KAMS[i % 2].id; });
+    return a;
+  }
+  // Guarantee every merchant has a KAM. Without this, an empty or partial
+  // assignment map (e.g. from a restore) would silently dump the whole list
+  // on whichever KAM is first.
+  function ensureAssignments(s){
+    if(!s.assignments || typeof s.assignments !== "object") s.assignments = {};
+    var known = {};
+    KAMS.forEach(function(k){ known[k.id] = 1; });
+    for(var i=0;i<BIZ.length;i++){
+      var id = BIZ[i].id, cur = s.assignments[id];
+      if(!cur || !known[cur]) s.assignments[id] = KAMS[i % KAMS.length].id;
+    }
+    // drop assignments for ids that no longer exist
+    Object.keys(s.assignments).forEach(function(id){
+      if(!BYID[id]) delete s.assignments[id];
+    });
+    return s;
+  }
+  function load(){
+    var base = { v:1, actingAs:KAMS[0].id, assignments:defaultAssignments(), records:{}, log:[] };
+    try{
+      var raw = localStorage.getItem(LS_KEY);
+      if(!raw) return base;
+      var s = JSON.parse(raw);
+      if(!s || s.v !== 1) return base;
+      s.actingAs = s.actingAs || base.actingAs;
+      s.records = s.records || {};
+      s.log = s.log || [];
+      return ensureAssignments(s);
+    }catch(e){ return base; }
+  }
+  var saveTimer = null;
+  function save(){
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(function(){
+      try{ localStorage.setItem(LS_KEY, JSON.stringify(state)); }
+      catch(e){ toast("Could not save — storage full or blocked"); }
+    }, 120);
+  }
+
+  function rec(id){
+    var r = state.records[id];
+    if(!r) { r = state.records[id] = { s:"pending", n:"", t:0 }; }
+    return r;
+  }
+  function statusOf(id){ var r=state.records[id]; return (r && r.s) || "pending"; }
+  function kamOf(id){ return state.assignments[id] || KAMS[0].id; }
+  function isWin(s){ return !!WINS[s]; }
+  function isContacted(s){ return s !== "pending"; }
+
+  /* ============ helpers ============ */
+  function el(id){ return document.getElementById(id); }
+  function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g,function(c){
+    return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]; }); }
+  function fmtPhone(p){ return p || "—"; }
+  function relTime(t){
+    if(!t) return "—";
+    var d = Date.now()-t;
+    if(d < 60000) return "just now";
+    var m = Math.floor(d/60000);
+    if(m < 60) return m+"m ago";
+    var h = Math.floor(m/60);
+    if(h < 24) return h+"h ago";
+    var dd = Math.floor(h/24);
+    if(dd < 7) return dd+"d ago";
+    var dt = new Date(t);
+    return dt.getDate()+" "+["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][dt.getMonth()];
+  }
+  function pct(a,b){ return b ? Math.round(a/b*1000)/10 : 0; }
+  var toastTimer=null;
+  function toast(msg){
+    var t = el("toast"); t.textContent = msg; t.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function(){ t.classList.remove("show"); }, 2100);
+  }
+  function todayKey(){ return new Date().toISOString().slice(0,10); }
+
+  /* ============ derived ============ */
+  function stats(){
+    var out = {
+      total:BIZ.length, churn:0, inactive:0, contacted:0, won:0, pending:0,
+      byStatus:{}, byKam:{}
+    };
+    STATUSES.forEach(function(s){ out.byStatus[s.id]=0; });
+    KAMS.forEach(function(k){
+      out.byKam[k.id] = { assigned:0, contacted:0, won:0, wonBack:0, activated:0,
+                          notInterested:0, noAnswer:0, callback:0, pending:0,
+                          churnTotal:0, churnWon:0, inactiveTotal:0, inactiveWon:0 };
+    });
+    BIZ.forEach(function(b){
+      var s = statusOf(b.id), k = kamOf(b.id);
+      if(b.reason === "Churn") out.churn++; else out.inactive++;
+      out.byStatus[s]++;
+      if(isContacted(s)) out.contacted++;
+      if(isWin(s)) out.won++;
+      if(s === "pending") out.pending++;
+
+      var kk = out.byKam[k]; if(!kk) return;
+      kk.assigned++;
+      if(isContacted(s)) kk.contacted++;
+      if(isWin(s)) kk.won++;
+      if(s==="won_back") kk.wonBack++;
+      if(s==="activated") kk.activated++;
+      if(s==="not_interested") kk.notInterested++;
+      if(s==="no_answer") kk.noAnswer++;
+      if(s==="callback") kk.callback++;
+      if(s==="pending") kk.pending++;
+      if(b.reason === "Churn"){ kk.churnTotal++; if(isWin(s)) kk.churnWon++; }
+      else { kk.inactiveTotal++; if(isWin(s)) kk.inactiveWon++; }
+    });
+    return out;
+  }
+  function todayStats(){
+    var d = todayKey(), contacted=0, wins=0;
+    state.log.forEach(function(l){
+      if((l.t||"").slice(0,10) !== d) return;
+      if(l.to && isContacted(l.to)) contacted++;
+      if(l.to && isWin(l.to)) wins++;
+    });
+    return { contacted:contacted, wins:wins };
+  }
+
+  /* ============ render: KPI ============ */
+  function renderKPIs(){
+    var t = stats(), td = todayStats();
+    var kpis = [
+      { lbl:"Total merchants", val:t.total, foot:t.churn+" churn · "+t.inactive+" inactive" },
+      { lbl:"Contacted", val:t.contacted, foot:pct(t.contacted,t.total)+"% of list",
+        dot:"#2563EB" },
+      { lbl:"Won back", val:t.byStatus.won_back || 0, foot:"re-engaged churn" },
+      { lbl:"Activated", val:t.byStatus.activated || 0, foot:"inactive → active" },
+      { lbl:"Win rate", val:pct(t.won,t.contacted)+"%",
+        foot:t.won+" won of "+t.contacted+" contacted", accent:true },
+      { lbl:"Still pending", val:t.pending, foot:"no call logged yet" }
+    ];
+    el("kpis").innerHTML = kpis.map(function(k){
+      return '<div class="kpi'+(k.accent?" accent":"")+'">'+
+        '<div class="lbl">'+(k.dot?'<span class="dot" style="background:'+k.dot+'"></span>':'')+esc(k.lbl)+'</div>'+
+        '<div class="val">'+k.val+'</div>'+
+        '<div class="foot">'+esc(k.foot)+'</div></div>';
+    }).join("");
+    el("todayHint").textContent = "Today: " + td.contacted + " calls · " + td.wins + " wins";
+  }
+
+  /* ============ render: KAM board ============ */
+  function renderKAM(){
+    var t = stats();
+    el("kamBoard").innerHTML = KAMS.map(function(k){
+      var s = t.byKam[k.id];
+      var cRate = pct(s.contacted, s.assigned);
+      var wRate = pct(s.won, s.contacted);
+      var pWon = s.contacted ? (s.won/s.contacted*100) : 0;
+      var pOther = s.contacted ? ((s.contacted-s.won)/s.contacted*100) : 0;
+      return '<div class="kamcard">'+
+        '<div class="kamhd">'+
+          '<div class="avatar" style="background:'+k.color+'">'+k.short+'</div>'+
+          '<div><div class="kamname">'+esc(k.name)+'</div>'+
+          '<div class="kamrole">Key Account Manager</div></div>'+
+        '</div>'+
+        '<div class="kamstats">'+
+          '<div class="kamstat"><div class="n">'+s.assigned+'</div><div class="k">Leads</div></div>'+
+          '<div class="kamstat"><div class="n">'+s.contacted+'</div><div class="k">Called</div></div>'+
+          '<div class="kamstat"><div class="n" style="color:'+k.color+'">'+s.won+'</div><div class="k">Won</div></div>'+
+        '</div>'+
+        '<div class="bar">'+
+          '<i style="width:'+pWon.toFixed(1)+'%;background:'+k.color+'"></i>'+
+          '<i style="width:'+pOther.toFixed(1)+'%;background:'+k.color+'33"></i>'+
+        '</div>'+
+        '<div class="barlbl"><span>'+wRate+'% win rate</span><span>'+cRate+'% called</span></div>'+
+        '<div class="barlbl" style="margin-top:3px;font-weight:500;color:var(--soft)">'+
+          esc("Won back "+s.wonBack+" · Activated "+s.activated+" · Callback "+s.callback)+
+        '</div>'+
+      '</div>';
+    }).join("");
+
+    var pctDone = t.contacted/t.total*100;
+    el("teamBar").innerHTML =
+      '<i style="width:'+(t.won/t.total*100).toFixed(1)+'%;background:#0E9F6E"></i>'+
+      '<i style="width:'+((t.contacted-t.won)/t.total*100).toFixed(1)+'%;background:#94A3B8"></i>';
+    el("teamProgTxt").textContent = t.contacted+" / "+t.total+" contacted";
+    el("teamPct").textContent = pct(t.contacted,t.total)+"% complete";
+    el("teamRemain").textContent = (t.total-t.contacted)+" left";
+  }
+
+  /* ============ render: donut + legend ============ */
+  function renderCharts(){
+    var t = stats();
+    var R = 60, C = 2*Math.PI*R;
+    var total = t.total, offset = 0, segs = "", legend = "";
+    STATUSES.forEach(function(s){
+      var n = t.byStatus[s.id] || 0;
+      if(!n) return;
+      var len = n/total*C;
+      segs += '<circle cx="75" cy="75" r="'+R+'" fill="none" stroke="'+s.fg+'" stroke-width="19" '+
+              'stroke-dasharray="'+(len-1.5).toFixed(2)+' '+(C-len+1.5).toFixed(2)+'" '+
+              'stroke-dashoffset="'+(-offset).toFixed(2)+'"></circle>';
+      offset += len;
+      legend += '<div class="lg"><span class="sw" style="background:'+s.fg+'"></span>'+
+        '<span class="nm">'+esc(s.label)+'</span>'+
+        '<span class="vl">'+n+'</span>'+
+        '<span class="vl" style="color:var(--soft);font-weight:600;width:42px;text-align:right">'+pct(n,total)+'%</span></div>';
+    });
+    if(!segs){
+      segs = '<circle cx="75" cy="75" r="'+R+'" fill="none" stroke="#EDF1F7" stroke-width="19"></circle>';
+    }
+    el("donut").innerHTML = segs;
+    el("donutBig").textContent = pct(t.contacted,t.total)+"%";
+    el("legend").innerHTML = legend || '<div class="lg"><span class="nm">No data yet</span></div>';
+
+    var churnDone = 0, inactDone = 0, churnWon=0, inactWon=0;
+    BIZ.forEach(function(b){
+      var s = statusOf(b.id);
+      if(b.reason === "Churn"){ if(isContacted(s)) churnDone++; if(isWin(s)) churnWon++; }
+      else { if(isContacted(s)) inactDone++; if(isWin(s)) inactWon++; }
+    });
+    el("churnTxt").textContent = churnDone + " / " + t.churn + " called · " + churnWon + " won back";
+    el("inactiveTxt").textContent = inactDone + " / " + t.inactive + " called · " + inactWon + " activated";
+    el("churnBar").style.width = (t.churn ? churnDone/t.churn*100 : 0) + "%";
+    el("inactiveBar").style.width = (t.inactive ? inactDone/t.inactive*100 : 0) + "%";
+  }
+
+  /* ============ table ============ */
+  var filters = { q:"", kam:"", status:"", reason:"" };
+  var page = 1;
+
+  function filtered(){
+    var q = filters.q.trim().toLowerCase();
+    return BIZ.filter(function(b){
+      if(filters.reason && b.reason !== filters.reason) return false;
+      if(filters.kam && kamOf(b.id) !== filters.kam) return false;
+      var s = statusOf(b.id);
+      if(filters.status){
+        if(filters.status === "__open__"){ if(isContacted(s)) return false; }
+        else if(s !== filters.status) return false;
+      }
+      if(q){
+        var hay = (b.name+" "+b.phone+" "+b.id).toLowerCase();
+        if(hay.indexOf(q) === -1) return false;
+      }
+      return true;
+    });
+  }
+
+  function renderTable(){
+    var rows = filtered();
+    var pages = Math.max(1, Math.ceil(rows.length/PER_PAGE));
+    if(page > pages) page = pages;
+    var slice = rows.slice((page-1)*PER_PAGE, page*PER_PAGE);
+
+    el("tbody").innerHTML = slice.length ? slice.map(function(b, i){
+      var s = statusOf(b.id), st = S_BY_ID[s], k = kamOf(b.id), r = state.records[b.id];
+      var kObj = KAMS.filter(function(x){return x.id===k;})[0] || KAMS[0];
+      var kOpts = KAMS.map(function(x){
+        return '<option value="'+x.id+'"'+(x.id===k?' selected':'')+'>'+esc(x.name.split(" ")[0])+'</option>';
+      }).join("");
+      var sOpts = STATUSES.map(function(x){
+        return '<option value="'+x.id+'"'+(x.id===s?' selected':'')+'>'+x.label+'</option>';
+      }).join("");
+      var idx = (page-1)*PER_PAGE + i + 1;
+      return '<tr class="'+(isWin(s)?'winrow':'')+'">'+
+        '<td style="color:var(--soft);font-size:11px">'+idx+'</td>'+
+        '<td class="biz"><span class="bname" title="'+esc(b.name)+'">'+esc(b.name)+'</span>'+
+          '<span class="bid">#'+esc(b.id)+'</span></td>'+
+        '<td><a class="phone" href="tel:'+esc(b.phone)+'">'+esc(fmtPhone(b.phone))+'</a> '+
+          '<button class="copy" data-copy="'+esc(b.phone)+'" title="Copy number">'+
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>'+
+          '</button></td>'+
+        '<td><span class="pill" style="color:'+(b.reason==="Churn"?"#B91C1C":"#B45309")+';background:'+(b.reason==="Churn"?"#FEF2F2":"#FFFBEB")+'">'+esc(b.reason)+'</span></td>'+
+        '<td><select class="kam" data-kam="'+esc(b.id)+'" style="color:'+kObj.color+';border-color:'+kObj.color+'33">'+kOpts+'</select></td>'+
+        '<td><select class="st" data-st="'+esc(b.id)+'" style="color:'+st.fg+';background-color:'+st.bg+'">'+sOpts+'</select></td>'+
+        '<td><input class="note" data-note="'+esc(b.id)+'" value="'+esc(r?r.n:"")+'" placeholder="Add a note…"></td>'+
+        '<td class="when">'+relTime(r?r.t:0)+'</td>'+
+      '</tr>';
+    }).join("") : '<tr><td colspan="8"><div class="empty">No businesses match these filters.</div></td></tr>';
+
+    var from = rows.length ? (page-1)*PER_PAGE+1 : 0;
+    var to = Math.min(page*PER_PAGE, rows.length);
+    el("pgInfo").textContent = rows.length ? ("Showing "+from+"–"+to+" of "+rows.length) : "No results";
+    el("pgNum").textContent = page+" / "+pages;
+    el("pgPrev").disabled = page <= 1;
+    el("pgNext").disabled = page >= pages;
+    el("tblCount").textContent = rows.length+" of "+BIZ.length+" businesses";
+  }
+
+  function render(){ renderKPIs(); renderKAM(); renderCharts(); renderTable(); }
+
+  /* ============ mutations ============ */
+  function setStatus(id, s, silent){
+    var r = rec(id);
+    var from = r.s;
+    r.s = s; r.t = Date.now();
+    if(from !== s){
+      state.log.push({ t:new Date().toISOString(), id:id, kam:state.actingAs, from:from, to:s });
+      if(state.log.length > 4000) state.log = state.log.slice(-4000);
+    }
+    save();
+    queuePush(id);
+    render();
+    if(!silent) toast("Saved · " + BYID[id].name + " → " + S_BY_ID[s].label);
+  }
+  function setKam(id, k){
+    state.assignments[id] = k;
+    var r = rec(id); r.t = Date.now();
+    save(); queuePush(id); render();
+    toast("Assigned to " + (KAMS.filter(function(x){return x.id===k;})[0]||{}).name);
+  }
+  function setNote(id, n){
+    var r = rec(id);
+    r.n = n; r.t = Date.now();
+    save(); queuePush(id);
+    var row = document.querySelector('[data-note="'+id+'"]');
+    if(row){
+      var td = row.closest("td").nextElementSibling;
+      if(td) td.textContent = "just now";
+    }
+  }
+
+  /* ============ wiring ============ */
+  function buildSelects(){
+    var who = el("whoSel");
+    who.innerHTML = KAMS.map(function(k){
+      return '<option value="'+k.id+'">'+esc(k.name)+'</option>';
+    }).join("");
+    who.value = state.actingAs;
+    who.addEventListener("change", function(){
+      state.actingAs = who.value; save();
+      toast("Acting as " + who.options[who.selectedIndex].text);
+    });
+
+    el("fKam").innerHTML = '<option value="">All KAMs</option>' + KAMS.map(function(k){
+      return '<option value="'+k.id+'">'+esc(k.name)+'</option>';
+    }).join("");
+
+    el("fStatus").innerHTML = '<option value="">All outcomes</option><option value="__open__">Open (not called)</option>' +
+      STATUSES.filter(function(s){ return s.id !== "pending"; }).map(function(s){
+        return '<option value="'+s.id+'">'+esc(s.label)+'</option>';
+      }).join("");
+  }
+
+  function wire(){
+    var q = el("q");
+    q.addEventListener("input", function(){ filters.q = q.value; page = 1; renderTable(); });
+    el("fKam").addEventListener("change", function(e){ filters.kam = e.target.value; page=1; renderTable(); });
+    el("fStatus").addEventListener("change", function(e){ filters.status = e.target.value; page=1; renderTable(); });
+    el("fReason").addEventListener("change", function(e){ filters.reason = e.target.value; page=1; renderTable(); });
+    el("btnClearFilters").addEventListener("click", function(){
+      filters = { q:"", kam:"", status:"", reason:"" };
+      q.value=""; el("fKam").value=""; el("fStatus").value=""; el("fReason").value="";
+      page = 1; renderTable(); toast("Filters cleared");
+    });
+
+    el("pgPrev").addEventListener("click", function(){ if(page>1){ page--; renderTable(); } });
+    el("pgNext").addEventListener("click", function(){ page++; renderTable(); });
+
+    el("tbody").addEventListener("change", function(e){
+      var t = e.target;
+      if(t.dataset.st) setStatus(t.dataset.st, t.value);
+      else if(t.dataset.kam) setKam(t.dataset.kam, t.value);
+    });
+    el("tbody").addEventListener("blur", function(e){
+      if(e.target.dataset && e.target.dataset.note) setNote(e.target.dataset.note, e.target.value);
+    }, true);
+    // save notes as the user types (no re-render, so focus/keystrokes are safe)
+    el("tbody").addEventListener("input", function(e){
+      var t = e.target;
+      if(!t.dataset || !t.dataset.note) return;
+      var r = rec(t.dataset.note);
+      r.n = t.value; r.t = Date.now();
+      save(); queuePush(t.dataset.note);
+    });
+    el("tbody").addEventListener("click", function(e){
+      var btn = e.target.closest ? e.target.closest(".copy") : null;
+      if(!btn) return;
+      var v = btn.getAttribute("data-copy");
+      if(navigator.clipboard && navigator.clipboard.writeText){
+        navigator.clipboard.writeText(v).then(function(){ toast("Copied " + v); },
+          function(){ fallbackCopy(v); });
+      } else fallbackCopy(v);
+    });
+
+    el("btnExport").addEventListener("click", exportCSV);
+    el("btnBackup").addEventListener("click", exportBackup);
+    el("fileIn").addEventListener("change", importBackup);
+  }
+
+  function fallbackCopy(v){
+    var ta = document.createElement("textarea");
+    ta.value = v; ta.style.position="fixed"; ta.style.opacity="0";
+    document.body.appendChild(ta); ta.select();
+    try{ document.execCommand("copy"); toast("Copied " + v); }
+    catch(e){ toast("Copy failed"); }
+    document.body.removeChild(ta);
+  }
+
+  /* ============ export / import ============ */
+  function download(filename, text, mime){
+    var blob = new Blob([text], { type: mime || "text/plain;charset=utf-8" });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a);
+    setTimeout(function(){ URL.revokeObjectURL(url); }, 1500);
+  }
+  function csvCell(v){
+    v = (v==null?"":String(v));
+    return /[",\n]/.test(v) ? '"'+v.replace(/"/g,'""')+'"' : v;
+  }
+  function exportCSV(){
+    var rows = filtered();
+    var head = ["Business ID","Reason","Business Name","Phone","Assigned KAM","Outcome","Notes","Last Updated"];
+    var lines = [head.join(",")];
+    rows.forEach(function(b){
+      var s = statusOf(b.id), r = state.records[b.id] || {};
+      var kObj = KAMS.filter(function(x){ return x.id === kamOf(b.id); })[0] || KAMS[0];
+      lines.push([
+        b.id, b.reason, b.name, b.phone, kObj.name,
+        S_BY_ID[s].label, r.n || "",
+        r.t ? new Date(r.t).toISOString().slice(0,16).replace("T"," ") : ""
+      ].map(csvCell).join(","));
+    });
+    download("churn-win-tracker-"+todayKey()+".csv", "\uFEFF"+lines.join("\r\n"), "text/csv;charset=utf-8");
+    toast("Exported " + rows.length + " rows");
+  }
+  function exportBackup(){
+    var payload = { app:"churn-win-tracker", v:1, exportedAt:new Date().toISOString(),
+                    actingAs:state.actingAs, assignments:state.assignments,
+                    records:state.records, log:state.log.slice(-4000) };
+    download("churn-win-backup-"+todayKey()+".json", JSON.stringify(payload), "application/json");
+    toast("Backup downloaded");
+  }
+  function importBackup(e){
+    var f = e.target.files && e.target.files[0];
+    if(!f) return;
+    var reader = new FileReader();
+    reader.onload = function(){
+      try{
+        var d = JSON.parse(reader.result);
+        if(!d || !d.records) throw new Error("Not a tracker backup");
+        var merged = 0, kept = 0;
+        Object.keys(d.records).forEach(function(id){
+          if(!BYID[id]) return;
+          var incoming = d.records[id] || {};
+          var cur = state.records[id];
+          var inT = incoming.t || 0, curT = (cur && cur.t) || 0;
+          if(!cur || inT > curT){
+            state.records[id] = { s:incoming.s || "pending", n:incoming.n || "", t:inT };
+            merged++;
+          } else kept++;
+        });
+        if(d.assignments){
+          Object.keys(d.assignments).forEach(function(id){
+            if(BYID[id]) state.assignments[id] = d.assignments[id];
+          });
+        }
+        ensureAssignments(state);
+        if(Array.isArray(d.log)) state.log = state.log.concat(d.log).slice(-4000);
+        save(); render();
+        Object.keys(state.assignments).forEach(function(id){ queuePush(id); });
+        toast("Restored — " + merged + " updated, " + kept + " kept (newer locally)");
+      }catch(err){
+        toast("Could not read that file");
+      }
+      e.target.value = "";
+    };
+    reader.readAsText(f);
+  }
+
+  /* ============================================================
+     Google Sheet sync
+     Dashboard <-> Apps Script web app <-> "Churn & Inactive merchant List"
+     Columns: A Business ID | B Reason | C Business Name | D Phone
+              E Assigned KAM  | F Outcome | G Notes | H Updated
+     ============================================================ */
+  var SYNC_KEY = "cwt.sync.url";
+  var sync = { url:"", status:"off", lastOk:0, detail:"", queue:{}, busy:false,
+               timer:null, retry:null, poll:null };
+
+  var LABEL_TO_ID = {};
+  STATUSES.forEach(function(s){ LABEL_TO_ID[s.label.toLowerCase()] = s.id; LABEL_TO_ID[s.id] = s.id; });
+  var NAME_TO_KAM = {};
+  KAMS.forEach(function(k){
+    NAME_TO_KAM[k.name.toLowerCase()] = k.id;
+    NAME_TO_KAM[k.id] = k.id;
+    NAME_TO_KAM[k.name.split(" ")[0].toLowerCase()] = k.id;
+  });
+  function kamName(id){
+    var k = KAMS.filter(function(x){ return x.id === id; })[0];
+    return k ? k.name : KAMS[0].name;
+  }
+  function statusLabel(id){ return (S_BY_ID[id] || S_BY_ID.pending).label; }
+
+  try{ sync.url = localStorage.getItem(SYNC_KEY) || ""; }catch(e){ sync.url = ""; }
+
+  function syncActive(){ return !!sync.url; }
+
+  function renderSyncUI(){
+    var pill = el("syncPill"), txt = el("syncPillTxt");
+    if(!pill) return;
+    var st = sync.status, label;
+    if(!syncActive())          { st = "off";     label = "Sheet sync off"; }
+    else if(st === "syncing")  { label = "Saving…"; }
+    else if(st === "error")    { label = "Sync error"; }
+    else if(st === "queued")   { label = "Pending…"; }
+    else if(st === "ok")       { label = "Synced"; }
+    else                       { label = "Sheet sync on"; }
+    pill.setAttribute("data-st", st);
+    txt.textContent = label;
+    pill.title = syncActive()
+      ? ("Sheet sync " + (st==="error" ? "error: " + sync.detail : st) +
+         (sync.lastOk ? " · last " + relTime(sync.lastOk) : ""))
+      : "Click to connect a Google Sheet";
+
+    var box = el("syncStat");
+    if(box){
+      if(!syncActive()){ box.className = "syncstat"; box.textContent = "Not connected — paste the web-app URL above."; }
+      else if(st === "error"){ box.className = "syncstat err"; box.textContent = "Sync error: " + (sync.detail || "unknown"); }
+      else {
+        var q = Object.keys(sync.queue).length;
+        box.className = "syncstat ok";
+        box.textContent = "Connected · " + (sync.lastOk ? "last synced " + relTime(sync.lastOk) : "waiting for first sync") +
+          (q ? " · " + q + " change" + (q>1?"s":"") + " queued" : "");
+      }
+    }
+  }
+
+  /* --- queueing: every local edit marks that merchant dirty --- */
+  function queuePush(id){
+    if(!syncActive()) return;
+    var r = state.records[id] || { s:"pending", n:"", t:0 };
+    sync.queue[id] = { s:r.s, k:kamOf(id), n:r.n || "", t:r.t || Date.now() };
+    if(sync.status !== "error") sync.status = "queued";
+    renderSyncUI();
+    clearTimeout(sync.timer);
+    sync.timer = setTimeout(flush, 800);
+  }
+
+  function payloadFor(ids){
+    return { updates: ids.map(function(id){
+      var q = sync.queue[id];
+      return { id:String(id), kam:kamName(q.k), outcome:statusLabel(q.s),
+               notes:q.n, updated:new Date(q.t).toISOString() };
+    }) };
+  }
+
+  // Apps Script can't answer CORS preflight, so we POST as text/plain.
+  function postSheet(body){
+    return fetch(sync.url, {
+      method:"POST", redirect:"follow",
+      headers:{ "Content-Type":"text/plain;charset=utf-8" },
+      body: JSON.stringify(body)
+    }).then(function(r){
+      if(!r.ok) throw new Error("HTTP " + r.status);
+      return r.text().then(function(t){
+        try{ return JSON.parse(t); }catch(e){ return { ok:true }; }
+      });
+    });
+  }
+
+  function flush(){
+    if(!syncActive() || sync.busy) return;
+    var ids = Object.keys(sync.queue);
+    if(!ids.length) return;
+    sync.busy = true; sync.status = "syncing"; renderSyncUI();
+    postSheet(payloadFor(ids)).then(function(res){
+      ids.forEach(function(id){ delete sync.queue[id]; });
+      sync.busy = false; sync.lastOk = Date.now(); sync.detail = "";
+      sync.status = Object.keys(sync.queue).length ? "queued" : "ok";
+      renderSyncUI();
+      if(sync.status === "queued"){ clearTimeout(sync.timer); sync.timer = setTimeout(flush, 400); }
+    }).catch(function(err){
+      sync.busy = false;
+      sync.status = "error";
+      sync.detail = (err && err.message) || String(err);
+      renderSyncUI();
+      clearTimeout(sync.retry);
+      sync.retry = setTimeout(flush, 6000);   // keep retrying; changes stay queued
+    });
+  }
+
+  /* --- pull: the sheet is shared truth, newest timestamp wins --- */
+  function pullSheet(silent){
+    if(!syncActive()) return Promise.resolve(0);
+    sync.status = sync.status === "queued" ? "queued" : "syncing";
+    renderSyncUI();
+    var url = sync.url + (sync.url.indexOf("?") > -1 ? "&" : "?") + "_t=" + Date.now();
+    return fetch(url, { method:"GET", redirect:"follow" })
+      .then(function(r){
+        if(!r.ok) throw new Error("HTTP " + r.status);
+        return r.json();
+      })
+      .then(function(d){
+        var rows = (d && d.rows) || [], applied = 0;
+        rows.forEach(function(rw){
+          if(!rw || rw.length < 5) return;
+          var id = String(rw[0] == null ? "" : rw[0]).trim();
+          if(!BYID[id]) return;
+
+          var kamId  = NAME_TO_KAM[String(rw[1]||"").toLowerCase().trim()];
+          var stId   = LABEL_TO_ID[String(rw[2]||"").toLowerCase().trim()];
+          var notes  = rw[3] == null ? "" : String(rw[3]);
+          var t      = Date.parse(rw[4]) || 0;
+
+          if(kamId) state.assignments[id] = kamId;
+
+          var cur = state.records[id] || { s:"pending", n:"", t:0 };
+          if(t > (cur.t || 0)){
+            state.records[id] = { s: stId || cur.s || "pending", n: notes, t: t };
+            applied++;
+          }
+        });
+        ensureAssignments(state);
+        sync.lastOk = Date.now();
+        sync.detail = "";
+        if(sync.status !== "queued") sync.status = "ok";
+        renderSyncUI(); save(); render();
+        if(!silent) toast(applied ? ("Pulled " + applied + " update" + (applied>1?"s":"") + " from the sheet")
+                                  : "Sheet already up to date");
+        return applied;
+      })
+      .catch(function(err){
+        sync.status = "error";
+        sync.detail = (err && err.message) || String(err);
+        renderSyncUI();
+        if(!silent) toast("Could not read the sheet: " + sync.detail);
+        return 0;
+      });
+  }
+
+  /* --- push every locally-known record (first-time seeding) --- */
+  function pushAllLocal(){
+    if(!syncActive()){ toast("Connect a Sheet URL first"); return; }
+    var ids = Object.keys(state.records).filter(function(id){
+      return BYID[id] && state.records[id] && state.records[id].t;
+    });
+    if(!ids.length){ toast("Nothing to push yet"); return; }
+    var chunks = [], size = 100;
+    for(var i=0;i<ids.length;i+=size) chunks.push(ids.slice(i, i+size));
+    Object.keys(sync.queue).forEach(function(id){ delete sync.queue[id]; });
+    sync.status = "syncing"; renderSyncUI();
+    var done = 0, failed = 0;
+    var chain = Promise.resolve();
+    chunks.forEach(function(chunk){
+      chain = chain.then(function(){
+        var body = { updates: chunk.map(function(id){
+          var r = state.records[id];
+          return { id:String(id), kam:kamName(kamOf(id)), outcome:statusLabel(r.s),
+                   notes:r.n || "", updated:new Date(r.t).toISOString() };
+        })};
+        return postSheet(body).then(function(){ done += chunk.length; })
+          .catch(function(){ failed += chunk.length; });
+      });
+    });
+    chain.then(function(){
+      sync.status = failed ? "error" : "ok";
+      sync.detail = failed ? (failed + " rows failed") : "";
+      if(!failed) sync.lastOk = Date.now();
+      renderSyncUI();
+      toast(failed ? ("Pushed " + done + ", failed " + failed)
+                   : ("Pushed " + done + " rows to the sheet"));
+    });
+  }
+
+  function saveSyncUrl(u){
+    sync.url = (u || "").trim();
+    try{
+      if(sync.url) localStorage.setItem(SYNC_KEY, sync.url);
+      else localStorage.removeItem(SYNC_KEY);
+    }catch(e){}
+    sync.status = sync.url ? "ok" : "off";
+    sync.detail = "";
+    renderSyncUI();
+  }
+
+  function startPolling(){
+    clearInterval(sync.poll);
+    sync.poll = setInterval(function(){
+      if(document.visibilityState === "visible" && syncActive() && !sync.busy) pullSheet(true);
+    }, 45000);
+  }
+
+  function wireSync(){
+    var modal = el("syncModal");
+    function openModal(){
+      el("syncUrl").value = sync.url;
+      renderSyncUI();
+      modal.classList.add("open");
+      setTimeout(function(){ el("syncUrl").focus(); }, 40);
+    }
+    function closeModal(){ modal.classList.remove("open"); }
+
+    el("syncPill").addEventListener("click", openModal);
+    el("syncClose").addEventListener("click", closeModal);
+    modal.addEventListener("click", function(e){ if(e.target === modal) closeModal(); });
+    document.addEventListener("keydown", function(e){
+      if(e.key === "Escape" && modal.classList.contains("open")) closeModal();
+    });
+
+    el("syncSave").addEventListener("click", function(){
+      var u = el("syncUrl").value.trim();
+      if(u && !/^https:\/\/script\.google\.com\/macros\/s\/[^/]+\/exec/.test(u)){
+        toast("That doesn't look like an Apps Script /exec URL");
+      }
+      saveSyncUrl(u);
+      if(sync.url){ toast("Saved — checking the connection…"); pullSheet(false); }
+      else toast("Sheet sync disconnected");
+    });
+
+    el("syncNow").addEventListener("click", function(){
+      if(!syncActive()){ toast("Connect a Sheet URL first"); return; }
+      flush(); pullSheet(false);
+    });
+
+    el("syncPushAll").addEventListener("click", pushAllLocal);
+
+    el("syncDisconnect").addEventListener("click", function(){
+      saveSyncUrl("");
+      el("syncUrl").value = "";
+      toast("Disconnected — nothing more will be written to the sheet");
+    });
+
+    document.addEventListener("visibilitychange", function(){
+      if(document.visibilityState === "visible" && syncActive() && !sync.busy) pullSheet(true);
+    });
+    window.addEventListener("online", function(){
+      if(syncActive() && Object.keys(sync.queue).length) flush();
+    });
+    startPolling();
+  }
+
+  /* ============ boot ============ */
+  el("subCount").textContent = BIZ.length;
+  buildSelects();
+  wire();
+  wireSync();
+  render();
+  renderSyncUI();
+  if(syncActive()) pullSheet(true);
+})();
+</script>
+</body>
+</html>
