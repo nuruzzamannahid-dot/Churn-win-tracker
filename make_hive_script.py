@@ -46,8 +46,9 @@ TEMPLATE = r"""/* Hive → Churn Win Tracker: lifetime orders per business
 
   var CFG = {
     limit: 100,        // rows per request
-    delayMs: 250,      // pause between businesses; raise if Hive rate-limits
-    maxPages: 30,      // safety cap when a business has many orders
+    delayMs: 120,      // pause between businesses; raise if Hive rate-limits
+    pageDelayMs: 100,  // pause between pages of the same business
+    maxPages: 60,      // 60 x 100 = 6000 orders; beyond that the row is left blank
     stopAfter: 0       // 0 = all; set e.g. 5 to trial-run
   };
 
@@ -131,9 +132,12 @@ TEMPLATE = r"""/* Hive → Churn Win Tracker: lifetime orders per business
     var objects;
     try { objects = [JSON.parse(text)]; } catch (e) { objects = extractFlight(text); }
 
-    var orders = [], totals = [], bizPhones = {};
+    var orders = [], totals = [], bizPhones = {}, listLike = false;
     objects.forEach(function (o) {
       if (!o || typeof o !== "object") return;
+      ["orders", "data", "rows", "results", "items", "list"].forEach(function (k) {
+        if (Array.isArray(o[k])) listLike = true;
+      });
       if (orderLike(o)) {
         orders.push(o);
         BIZ_PHONE_KEYS.forEach(function (k) {
@@ -166,7 +170,14 @@ TEMPLATE = r"""/* Hive → Churn Win Tracker: lifetime orders per business
 
     var dates = uniq.map(dateOf).filter(Boolean).sort();
     var total = totals.length ? Math.max.apply(null, totals) : null;
-    return { orders: uniq.length, dates: dates, total: total, bizPhones: Object.keys(bizPhones) };
+    var ids = uniq.map(function (o) {
+      return String(o.consignmentId || o.consignment_id || o.orderId || o.order_id ||
+                    o._id || o.id || o.trackingId || dateOf(o) || "");
+    }).filter(Boolean);
+
+    if (totals.length) listLike = true;
+    return { orders: uniq.length, rows: uniq.length, dates: dates, ids: ids,
+             total: total, listLike: listLike, bizPhones: Object.keys(bizPhones) };
   }
 
   /**
@@ -256,50 +267,74 @@ TEMPLATE = r"""/* Hive → Churn Win Tracker: lifetime orders per business
     var phone = digits(b[2]);
     var attempts = phoneParamVariants(phone);
     if (chosenVariant) {
-      // The param name is already known: try it first and skip the guessing.
-      attempts.sort(function (x) {
-        return Object.keys(x)[0] === chosenVariant ? -1 : 1;
-      });
+      attempts.sort(function (x) { return Object.keys(x)[0] === chosenVariant ? -1 : 1; });
     }
 
     for (var i = 0; i < attempts.length; i++) {
       var base = attempts[i];
       var variant = Object.keys(base)[0];
-      var r = await get(Object.assign({ page: "1", limit: String(CFG.limit) }, base));
-      if (!r.ok) continue;
 
-      var p = r.parsed;
-      var sawPhone = phone.length >= 10 && r.text.indexOf(phone.slice(-10)) !== -1;
-      if (!sawPhone && p.orders === 0 && p.total == null) continue;   // wrong param name, try next
+      var first = await get(Object.assign({ page: "1", limit: String(CFG.limit) }, base));
+      if (!first.ok) continue;
 
-      var dates = p.dates.slice();
-      var fetched = p.orders;
-      var total = p.total != null ? p.total : (fetched < CFG.limit ? fetched : null);
-      var complete = total != null && fetched >= total;
-
-      // Too many orders to list: also pull the oldest page so the first order
-      // date (and therefore the active-day span) is real, not just page 1's.
-      if (total != null && !complete) {
-        var lastPage = Math.min(CFG.maxPages, Math.ceil(total / CFG.limit));
-        if (lastPage > 1) {
-          var lp = await get(Object.assign({ page: String(lastPage), limit: String(CFG.limit) }, base));
-          if (lp.ok) {
-            dates = dates.concat(lp.parsed.dates);
-            fetched += lp.parsed.orders;
-            complete = fetched >= total;
-          }
-        }
-      }
+      var sawPhone = phone.length >= 10 && first.text.indexOf(phone.slice(-10)) !== -1;
+      // Zero orders is a legitimate answer once the response is recognisably an
+      // order list; only a shapeless body means we guessed the wrong param name.
+      if (!sawPhone && first.parsed.orders === 0 && first.parsed.total == null &&
+          !first.parsed.listLike) continue;
 
       chosenVariant = variant;
-      var s = summarise(dates, total == null ? fetched : total, complete);
-      s.phoneMatched = sawPhone;
-      s.variant = variant;
-      s.fetched = fetched;
+
+      // Walk every page until one comes back short. The count is the number of
+      // DISTINCT order ids seen — never the page size, which is what produced
+      // a wall of fake "100 orders" on the first run.
+      var seen = {}, daysSeen = {}, count = 0, page = 1, complete = false, bad = false;
+      var cur = first, pages = 0;
+
+      while (page <= CFG.maxPages) {
+        var p = cur.parsed;
+        var added = 0;
+        (p.ids || []).forEach(function (id) {
+          if (!seen[id]) { seen[id] = 1; count++; added++; }
+        });
+        (p.dates || []).forEach(function (d) { daysSeen[d] = 1; });
+        pages++;
+
+        if (p.rows < CFG.limit) { complete = true; break; }     // short page = last page
+        if (page >= CFG.maxPages) break;                        // hit the cap -> unknown
+        page++;
+
+        var next = await get(Object.assign({ page: String(page), limit: String(CFG.limit) }, base));
+        if (!next.ok) { bad = true; break; }
+        if (page > 2) {                                          // no forward progress
+          var fresh = (next.parsed.ids || []).filter(function (id) { return !seen[id]; }).length;
+          if (fresh === 0) { bad = true; break; }
+        }
+        cur = next;
+        await sleep(CFG.pageDelayMs);
+      }
+
+      var dateList = Object.keys(daysSeen).sort();
+      var s = {
+        orders: (complete && !bad) ? count : null,   // null => write blank, never lie
+        first: (complete && !bad) ? (dateList[0] || "") : "",
+        last: (complete && !bad) ? (dateList[dateList.length - 1] || "") : "",
+        distinctDays: (complete && !bad) ? dateList.length : 0,
+        spanDays: 0,
+        complete: complete && !bad,
+        pages: pages,
+        seen: count,
+        phoneMatched: sawPhone,
+        variant: variant
+      };
+      if (s.first && s.last) {
+        s.spanDays = Math.round((new Date(s.last) - new Date(s.first)) / 86400000) + 1;
+      }
       return s;
     }
-    return { orders: null, first: "", last: "", distinctDays: 0, spanDays: 0,
-             complete: false, phoneMatched: false, variant: null, fetched: 0, failed: true };
+
+    return { orders: null, first: "", last: "", distinctDays: 0, spanDays: 0, complete: false,
+             pages: 0, seen: 0, phoneMatched: false, variant: null, failed: true };
   }
 
   function saveCsv(csv) {
@@ -373,7 +408,7 @@ TEMPLATE = r"""/* Hive → Churn Win Tracker: lifetime orders per business
     catch (e) { console.log("Clipboard blocked — the file download above still works"); }
   }
 
-  window.hiveOrders = { run: run, control: control, results: results,
+  window.hiveOrders = { run: run, control: control, results: results, query: queryBusiness,
                         save: function () {
                           if (!window.__hiveCsv) { console.warn("Run hiveOrders.run() first"); return; }
                           if (!saveCsv(window.__hiveCsv)) console.log("Run: copy(window.__hiveCsv)");
