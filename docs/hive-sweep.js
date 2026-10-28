@@ -117,4 +117,19 @@
   console.log("%cDONE — " + withOrders + " exact, " + failed + " left blank",
               "color:#0E9F6E;font-weight:bold");
   console.log("Downloaded hive_orders.csv — attach that file.");
+
+  // Compact, copy-pasteable form: id|orders|days for every business.
+  // Use this when attaching the CSV is awkward — the text can just be pasted
+  // into the chat and import_paste.py turns it back into biz_metrics.json.
+  var blob = rows.map(function (r) {
+    return r.id + "|" + (r.orders === "" ? "" : r.orders) + "|" + (r.days === "" ? "" : r.days);
+  }).join(";");
+  window.__hiveBlob = blob;
+
+  console.log("%c--- PASTE THIS (one block, into the chat) ---", "color:#2563EB;font-weight:bold");
+  console.log("HIVEPASTE1");
+  var CH = 180;
+  for (var i = 0; i < blob.length; i += CH) console.log(blob.slice(i, i + CH));
+  console.log("HIVEPASTE0");
+  console.log("%c--- end paste block (" + blob.length + " chars) ---", "color:#2563EB;font-weight:bold");
 })();

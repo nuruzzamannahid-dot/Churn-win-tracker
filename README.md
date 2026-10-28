@@ -22,7 +22,8 @@ Nuruzzaman Nahid.
 | `docs/hive-pull.js` | Console snippet that pulls the business list itself (name / phone / active days) |
 | `make_hive_script.py` | Regenerates `docs/hive-orders-pull.js` with the business list embedded |
 | `test_pagination.js` | Mocked-Hive test for the puller's counting logic (`node test_pagination.js`) |
-| `docs/hive-sweep.js` | Self-contained one-paste sweep: fetches the list, counts every merchant, downloads a CSV |
+| `docs/hive-sweep.js` | Self-contained one-paste sweep: fetches the list, counts every merchant, downloads a CSV **and** prints a pasteable block |
+| `import_paste.py` | Imports that pasteable block (`id\|orders\|days`) into `src/biz_metrics.json` |
 | `docs/diagnose-pagination.js` | Console probe: does `/orders` honour `?page=`/`?limit=`? Run before a full sweep |
 | `test_diagnose.js` | Mocked tests for the diagnostic's verdicts (`node test_diagnose.js`) |
 | `vercel.json` | `cleanUrls`, `trailingSlash`, cache headers |
@@ -45,7 +46,19 @@ python3 import_hive.py hive_export.csv     # writes src/biz_metrics.json, then b
 python3 import_hive.py hive_export.csv --dry-run   # preview the match rate only
 ```
 
-The importer matches on business id first, then phone (last 10 digits), accepts
+If you cannot attach the CSV, the sweep also prints a **compact block** between
+`HIVEPASTE1` and `HIVEPASTE0` — the same data as `id|orders|days` triples. Paste
+that into the chat and rebuild from it:
+
+```bash
+python3 import_paste.py pasted.txt        # or: pbpaste | python3 import_paste.py -
+```
+
+It tolerates wrapped lines, missing end markers and console banner text, keeps any
+existing first/last order dates, and writes blanks as null so a merchant nobody
+could count shows a dash rather than a number.
+
+The CSV importer matches on business id first, then phone (last 10 digits), accepts
 `,` `;` and tab delimiters, and tolerates `1,240`, `৳ 45,600` and empty cells.
 Column names are matched loosely (`Lifetime Orders`, `lifetime_orders`,
 `Total Orders`, `Active Days`, `active_day`…). To teach it new names, edit
