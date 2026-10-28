@@ -950,6 +950,15 @@
     var hint = el("projHint");
     if(hint) hint.textContent = "next " + PROJ.days + " days · " + t.n + " of " + BIZ.length + " merchants";
 
+    // The estimate toggle only means something while some merchant lacks dates.
+    // Leaving it visible with nothing to add is a dead control.
+    var box = el("projEst");
+    if(box){
+      var anyEstimated = BIZ.some(function(b){ return b.est; });
+      var wrap = box.closest("label");
+      if(wrap) wrap.style.display = anyEstimated ? "" : "none";
+    }
+
     var foot = el("projFoot");
     if(foot){
       var f = "Each merchant is projected at its own historical rate — lifetime orders ÷ months it has been ordering — " +
