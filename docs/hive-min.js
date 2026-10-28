@@ -18,10 +18,12 @@
   var DELAY = 60;         // ms between requests
   var LIST = "https://raw.githubusercontent.com/nuruzzamannahid-dot/Churn-win-tracker/main/src/biz_data.json";
 
+  var BUILD = "hive-min-1";   // loader verifies this before running the file
+
   var sleep = function (ms) { return new Promise(function (r) { setTimeout(r, ms); }); };
   var digits = function (v) { return String(v == null ? "" : v).replace(/\D/g, ""); };
 
-  console.log("Fetching the business list...");
+  console.log("Fetching the business list... (" + BUILD + ")");
   var lr = await fetch(LIST);
   if (!lr.ok) { console.error("Cannot load the list: HTTP " + lr.status); return; }
   var biz = await lr.json();
