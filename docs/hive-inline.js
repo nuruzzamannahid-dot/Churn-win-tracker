@@ -51,13 +51,14 @@
     if (!r.ok) return null;
     var text = await r.text();
 
+    // matchAll only: no exec() in a loop condition, so a stale lastIndex can
+    // never spin. (An inline /g literal inside a while condition rebuilds the
+    // RegExp every iteration and does exactly that.)
     var ids = new Set();
-    var reId = /"consignmentId"\s*:\s*"([^"]+)"/g, m;
-    while ((m = reId.exec(text))) ids.add(m[1]);          // one regex object, reused
+    for (var m of text.matchAll(/"consignmentId"\s*:\s*"([^"]+)"/g)) ids.add(m[1]);
 
     var days = new Set();
-    var reDay = /"createdAt"\s*:\s*"(\d{4}-\d{2}-\d{2})/g;
-    while ((m = reDay.exec(text))) days.add(m[1]);
+    for (var d of text.matchAll(/"createdAt"\s*:\s*"(\d{4}-\d{2}-\d{2})/g)) days.add(d[1]);
 
     return { text: text, ids: ids, days: days };
   }

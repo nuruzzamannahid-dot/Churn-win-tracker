@@ -24,7 +24,9 @@ Nuruzzaman Nahid.
 | `test_pagination.js` | Mocked-Hive test for the puller's counting logic (`node test_pagination.js`) |
 | `docs/hive-sweep.js` | Self-contained one-paste sweep: fetches the list, counts every merchant, downloads a CSV **and** prints a pasteable block |
 | `import_paste.py` | Imports that pasteable block (`id\|orders\|days`) into `src/biz_metrics.json` |
-| `docs/hive-inline.js` | Same sweep as one copy-paste file, for when the loader route is inconvenient |
+| `docs/hive-min.js` | Smallest sweep: no loader, no `exec()` loops — the one to paste |
+| `docs/hive-inline.js` | Same sweep with more comments, for reading |
+| `test_lint.js` | Static guard: fails if any file puts `exec()` in a loop condition |
 | `test_inline.js` | Mocked tests for the inline sweep, incl. a timeout guard against infinite loops |
 | `docs/diagnose-pagination.js` | Console probe: does `/orders` honour `?page=`/`?limit=`? Run before a full sweep |
 | `test_diagnose.js` | Mocked tests for the diagnostic's verdicts (`node test_diagnose.js`) |
