@@ -17,6 +17,7 @@ Nuruzzaman Nahid.
 | `import_hive.py` | Turns a Hive export (CSV/TSV/JSON) into `src/biz_metrics.json` |
 | `index.html` | Built, self-contained dashboard (this is what gets deployed) |
 | `apps-script/` | Optional Google Apps Script backend for Google Sheet sync |
+| `docs/PASTE-IN-CONSOLE.js` | 6-line loader to paste in the browser console - use this one |
 | `docs/hive-orders-pull.js` | Generated console script: pulls lifetime orders + order dates for all 540 businesses |
 | `docs/hive-pull.js` | Console snippet that pulls the business list itself (name / phone / active days) |
 | `make_hive_script.py` | Regenerates `docs/hive-orders-pull.js` with the business list embedded |
@@ -43,6 +44,12 @@ Column names are matched loosely (`Lifetime Orders`, `lifetime_orders`,
 `ALIASES` at the top of `import_hive.py`.
 
 ### Getting the numbers out of Hive (no API access needed)
+
+> **Pasting into the DevTools console?** Paste `docs/PASTE-IN-CONSOLE.js`
+> (6 lines) - it loads the real script for you. Pasting *this README* gives
+> `Uncaught SyntaxError: Invalid or unexpected token`, because markdown is not
+> JavaScript. The full script starts with `/* Hive -> Churn Win Tracker`.
+
 
 Hive is a Next.js App Router app: table data arrives as RSC "flight" text, so
 there is no copyable JSON in the Network tab. Both helpers below run in your own
