@@ -14,7 +14,7 @@
  * blocks github.com. In that case open the raw URL in a new tab, Ctrl+A,
  * Ctrl+C, and paste the whole file into the console instead.
  */
-fetch("https://raw.githubusercontent.com/nuruzzamannahid-dot/Churn-win-tracker/e5df428a2709ff55efe1686dc9c0eec4ce79aaec/docs/hive-orders-pull.js")
+fetch("https://raw.githubusercontent.com/nuruzzamannahid-dot/Churn-win-tracker/82c6c60f604e3ebb6e04037d4881923ef237ebea/docs/hive-orders-pull.js")
   .then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.text(); })
   .then(function (t) {
     if (t.indexOf("BUSINESSES") === -1) throw new Error("downloaded the wrong file");
@@ -24,5 +24,5 @@ fetch("https://raw.githubusercontent.com/nuruzzamannahid-dot/Churn-win-tracker/e
   .catch(function (e) {
     console.error("Load failed →", e.message);
     console.log("Fallback: open this URL in a new tab, Ctrl+A, Ctrl+C, paste it into the console:\n" +
-      "https://raw.githubusercontent.com/nuruzzamannahid-dot/Churn-win-tracker/e5df428a2709ff55efe1686dc9c0eec4ce79aaec/docs/hive-orders-pull.js");
+      "https://raw.githubusercontent.com/nuruzzamannahid-dot/Churn-win-tracker/82c6c60f604e3ebb6e04037d4881923ef237ebea/docs/hive-orders-pull.js");
   });

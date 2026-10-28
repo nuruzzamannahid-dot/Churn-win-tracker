@@ -22,6 +22,7 @@ Nuruzzaman Nahid.
 | `docs/hive-pull.js` | Console snippet that pulls the business list itself (name / phone / active days) |
 | `make_hive_script.py` | Regenerates `docs/hive-orders-pull.js` with the business list embedded |
 | `test_pagination.js` | Mocked-Hive test for the puller's counting logic (`node test_pagination.js`) |
+| `docs/hive-sweep.js` | Self-contained one-paste sweep: fetches the list, counts every merchant, downloads a CSV |
 | `docs/diagnose-pagination.js` | Console probe: does `/orders` honour `?page=`/`?limit=`? Run before a full sweep |
 | `test_diagnose.js` | Mocked tests for the diagnostic's verdicts (`node test_diagnose.js`) |
 | `vercel.json` | `cleanUrls`, `trailingSlash`, cache headers |
@@ -51,6 +52,22 @@ Column names are matched loosely (`Lifetime Orders`, `lifetime_orders`,
 `ALIASES` at the top of `import_hive.py`.
 
 ### Getting the numbers out of Hive (no API access needed)
+
+#### Measured behaviour of `/orders` (2026-10-28)
+
+Probed against AR Baby Cloud, which v1 had reported as exactly 100 orders:
+
+| Request | Result |
+| --- | --- |
+| `?page=1&limit=100` | 100 orders |
+| `?page=2&limit=100` | 100 **different** orders |
+| `?page=3&limit=100` | 62 orders — short page, the end |
+| `?page=1&limit=500` | **all 262** in one request |
+
+So `page` and `limit` are honoured, the true total was **262**, and a 500-row
+page covers almost every merchant in one call. `CFG.limit` is therefore 500 and
+the sweep is roughly one request per business.
+
 
 > **Pasting into the DevTools console?** Paste `docs/PASTE-IN-CONSOLE.js`
 > (6 lines) - it loads the real script for you. Pasting *this README* gives
