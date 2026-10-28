@@ -192,6 +192,11 @@
   input.note:focus{border-color:#94A3B8;background:#fff;box-shadow:0 0 0 3px rgba(148,163,184,.14)}
   input.note::placeholder{color:#B6C1D0}
   .when{font-size:11px;color:var(--soft);white-space:nowrap}
+  th.num,td.num{text-align:right}
+  td.num{font-variant-numeric:tabular-nums;white-space:nowrap;font-size:12px;color:var(--ink)}
+  td.num.avg{font-weight:700;color:var(--slate)}
+  td.num.zero{color:var(--soft)}
+  table.hide-mx .mx{display:none}
   .winrow{position:relative}
   .winrow::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--green)}
 
@@ -375,12 +380,14 @@
       <button class="btn btn-line" id="btnClearFilters">Clear filters</button>
     </div>
     <div class="tscroll">
-      <table>
+      <table id="tbl">
         <thead>
           <tr>
             <th style="width:34px">#</th>
             <th>Business</th>
             <th>Phone</th>
+            <th class="num mx" title="Orders placed in Hive, lifetime">Lifetime orders</th>
+            <th class="num mx" title="Lifetime orders divided by active days in Hive">Avg/day</th>
             <th>Reason</th>
             <th>Assigned KAM</th>
             <th>Outcome</th>
@@ -471,7 +478,18 @@
   var NUMWIN = { won_back:1, activated:1, not_interested:1, wrong_number:1 };
 
   var RAW = JSON.parse(document.getElementById("biz-data").textContent);
-  var BIZ = RAW.map(function(r){ return { id:String(r[0]), reason:r[1], name:r[2], phone:r[3] }; });
+  function numOrNull(v){
+    if(v === null || v === undefined || v === "") return null;
+    var n = Number(v);
+    return isFinite(n) ? n : null;
+  }
+  var BIZ = RAW.map(function(r){
+    return {
+      id:String(r[0]), reason:r[1], name:r[2], phone:r[3],
+      orders:numOrNull(r[4]),   // lifetime orders (Hive)
+      days:numOrNull(r[5])      // active days (Hive)
+    };
+  });
   var BYID = {}; BIZ.forEach(function(b){ BYID[b.id]=b; });
 
   var LS_KEY = "cwt.v1";
@@ -540,6 +558,23 @@
   function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g,function(c){
     return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]; }); }
   function fmtPhone(p){ return p || "—"; }
+  /* ---------- Hive metrics ---------- */
+  function fmtCount(n){
+    return (n === null || n === undefined) ? "—" : n.toLocaleString("en-US");
+  }
+  function avgPerDay(b){
+    if(b.orders === null || !b.days || b.days <= 0) return null;
+    return b.orders / b.days;
+  }
+  function fmtAvg(v){
+    if(v === null) return "—";
+    return v >= 10 ? v.toFixed(1) : v.toFixed(2);
+  }
+  function metricsKnown(){
+    var n = 0;
+    BIZ.forEach(function(b){ if(b.orders !== null) n++; });
+    return n;
+  }
   function relTime(t){
     if(!t) return "—";
     var d = Date.now()-t;
@@ -752,13 +787,15 @@
           '<button class="copy" data-copy="'+esc(b.phone)+'" title="Copy number">'+
           '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>'+
           '</button></td>'+
+        '<td class="num mx'+(b.orders===null?' zero':'')+'">'+fmtCount(b.orders)+'</td>'+
+        '<td class="num avg mx">'+fmtAvg(avgPerDay(b))+'</td>'+
         '<td><span class="pill" style="color:'+(b.reason==="Churn"?"#B91C1C":"#B45309")+';background:'+(b.reason==="Churn"?"#FEF2F2":"#FFFBEB")+'">'+esc(b.reason)+'</span></td>'+
         '<td><select class="kam" data-kam="'+esc(b.id)+'" style="color:'+kObj.color+';border-color:'+kObj.color+'33">'+kOpts+'</select></td>'+
         '<td><select class="st" data-st="'+esc(b.id)+'" style="color:'+st.fg+';background-color:'+st.bg+'">'+sOpts+'</select></td>'+
         '<td><input class="note" data-note="'+esc(b.id)+'" value="'+esc(r?r.n:"")+'" placeholder="Add a note…"></td>'+
         '<td class="when">'+relTime(r?r.t:0)+'</td>'+
       '</tr>';
-    }).join("") : '<tr><td colspan="8"><div class="empty">No businesses match these filters.</div></td></tr>';
+    }).join("") : '<tr><td colspan="10"><div class="empty">No businesses match these filters.</div></td></tr>';
 
     var from = rows.length ? (page-1)*PER_PAGE+1 : 0;
     var to = Math.min(page*PER_PAGE, rows.length);
@@ -769,7 +806,11 @@
     el("tblCount").textContent = rows.length+" of "+BIZ.length+" businesses";
   }
 
-  function render(){ renderKPIs(); renderKAM(); renderCharts(); renderTable(); }
+  function render(){
+    var tbl = el("tbl");
+    if(tbl) tbl.classList.toggle("hide-mx", metricsKnown() === 0);
+    renderKPIs(); renderKAM(); renderCharts(); renderTable();
+  }
 
   /* ============ mutations ============ */
   function setStatus(id, s, silent){
@@ -895,13 +936,17 @@
   }
   function exportCSV(){
     var rows = filtered();
-    var head = ["Business ID","Reason","Business Name","Phone","Assigned KAM","Outcome","Notes","Last Updated"];
+    var head = ["Business ID","Reason","Business Name","Phone","Lifetime Orders","Active Days","Avg Orders/Day","Assigned KAM","Outcome","Notes","Last Updated"];
     var lines = [head.join(",")];
     rows.forEach(function(b){
       var s = statusOf(b.id), r = state.records[b.id] || {};
       var kObj = KAMS.filter(function(x){ return x.id === kamOf(b.id); })[0] || KAMS[0];
       lines.push([
-        b.id, b.reason, b.name, b.phone, kObj.name,
+        b.id, b.reason, b.name, b.phone,
+        b.orders===null ? "" : b.orders,
+        b.days===null ? "" : b.days,
+        fmtAvg(avgPerDay(b)),
+        kObj.name,
         S_BY_ID[s].label, r.n || "",
         r.t ? new Date(r.t).toISOString().slice(0,16).replace("T"," ") : ""
       ].map(csvCell).join(","));

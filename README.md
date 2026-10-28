@@ -11,11 +11,37 @@ Nuruzzaman Nahid.
 | Path | Purpose |
 | --- | --- |
 | `src/biz_data.json` | Raw merchant list — `[id, reason, name, phone]` |
+| `src/biz_metrics.json` | Hive metrics per business id — `{"359": {"orders":1240,"days":210}}` |
 | `src/template.html` | HTML/CSS/JS template with a `__DATA__` placeholder |
-| `build.py` | Inlines the JSON into the template → `index.html` |
+| `build.py` | Merges the two JSON files into the template → `index.html` |
+| `import_hive.py` | Turns a Hive export (CSV/TSV/JSON) into `src/biz_metrics.json` |
 | `index.html` | Built, self-contained dashboard (this is what gets deployed) |
 | `apps-script/` | Optional Google Apps Script backend for Google Sheet sync |
+| `docs/hive-export-snippet.js` | Console snippet to extract metrics when Hive has no CSV export |
 | `vercel.json` | `cleanUrls`, `trailingSlash`, cache headers |
+
+## Hive metrics (lifetime orders · avg/day)
+
+Two extra table columns come from Hive: **Lifetime orders** and **Avg/day**
+(lifetime orders ÷ active days). Active days is kept in the data and shipped in
+the CSV export but is not shown as its own column.
+
+They stay **hidden until metrics exist** — an all-empty dashboard looks broken,
+so `build.py` only makes them appear once at least one business has numbers.
+
+```bash
+python3 import_hive.py hive_export.csv     # writes src/biz_metrics.json, then builds
+python3 import_hive.py hive_export.csv --dry-run   # preview the match rate only
+```
+
+The importer matches on business id first, then phone (last 10 digits), accepts
+`,` `;` and tab delimiters, and tolerates `1,240`, `৳ 45,600` and empty cells.
+Column names are matched loosely (`Lifetime Orders`, `lifetime_orders`,
+`Total Orders`, `Active Days`, `active_day`…). To teach it new names, edit
+`ALIASES` at the top of `import_hive.py`.
+
+No export button in Hive? Run `docs/hive-export-snippet.js` in the browser
+console on the businesses page — it copies a matching CSV to the clipboard.
 
 ## Build
 
