@@ -75,7 +75,9 @@ def to_int(v):
 
 
 def main() -> int:
-    src = sys.argv[1] if len(sys.argv) > 1 else "-"
+    args = [a for a in sys.argv[1:] if not a.startswith("-")]
+    dry = any(a in ("--dry", "--dry-run", "-n") for a in sys.argv[1:])
+    src = args[0] if args else "-"
     raw = sys.stdin.read() if src == "-" else pathlib.Path(src).read_text(encoding="utf-8")
 
     entries = parse_entries(read_blob(raw))
@@ -94,7 +96,8 @@ def main() -> int:
             existing = {}
 
     metrics = dict(existing)
-    updated = blank = unknown = 0
+    updated = blank = unknown = kept = 0
+    changed: list[tuple[str, int, int]] = []
     for bid, orders_s, days_s in entries:
         if bid not in known:
             unknown += 1
@@ -102,23 +105,52 @@ def main() -> int:
         orders = to_int(orders_s)
         days = to_int(days_s)
         entry = dict(metrics.get(bid) or {})
-        entry["orders"] = orders
-        if days is not None and days > 0:
-            entry["days"] = days
-        elif orders == 0:
-            entry["days"] = 0
+
         if orders is None:
+            # A blank means "this run could not count it", which is not evidence
+            # that an earlier count was wrong. Keep whatever we already had, so a
+            # 429 or a filtered-out response never erases a good number.
             blank += 1
+            if entry.get("orders") is not None:
+                kept += 1
+            entry.setdefault("orders", None)
         else:
+            before = entry.get("orders")
+            entry["orders"] = orders
+            if days is not None and days > 0:
+                entry["days"] = days
+            elif orders == 0:
+                entry["days"] = 0
+            if before is not None and before != orders:
+                changed.append((bid, before, orders))
             updated += 1
+
         metrics[bid] = entry
 
     with_orders = sum(1 for m in metrics.values() if m.get("orders") is not None)
     print(f"Parsed entries        : {len(entries)}")
     print(f"Written with a count  : {updated}")
-    print(f"Left blank            : {blank}")
+    print(f"Left blank            : {blank}"
+          + (f"  ({kept} kept an earlier count)" if kept else ""))
     print(f"Unknown ids (skipped) : {unknown}")
     print(f"Coverage now          : {with_orders} / {len(biz)}")
+
+    if changed:
+        print(f"Changed vs before     : {len(changed)}"
+              f" (largest: {max(changed, key=lambda c: abs(c[2] - c[1]))[0]})")
+
+    # Sanity: a count that cannot be true is worth seeing before it ships.
+    odd = [(k, v) for k, v in metrics.items()
+           if v.get("orders") not in (None, 0)
+           and (v.get("days") == 0 or (v.get("days") or 0) > v["orders"])]
+    if odd:
+        print(f"Suspicious rows       : {len(odd)}  e.g. {odd[:3]}")
+    else:
+        print("Suspicious rows       : 0")
+
+    if dry:
+        print("\n--dry: nothing written")
+        return 0
 
     METRICS_PATH.write_text(json.dumps(metrics, indent=1, sort_keys=True) + "\n", encoding="utf-8")
     print(f"\nwrote {METRICS_PATH.relative_to(ROOT)}")
