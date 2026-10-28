@@ -215,6 +215,7 @@ TEMPLATE = r"""/* Hive → Churn Win Tracker: lifetime orders per business
     for (var i = 0; i < variants.length; i++) {
       try {
         var res = await fetch(url, { credentials: "include", headers: variants[i] });
+        if (res.status === 429) { await sleep(3000); continue; }   // rate limited
         if (!res.ok) continue;
         var text = await res.text();
         var parsed = parseOrders(text);
@@ -249,10 +250,17 @@ TEMPLATE = r"""/* Hive → Churn Win Tracker: lifetime orders per business
   }
 
   var results = {};
+  var chosenVariant = null;   // learned from the first business that answers
 
   async function queryBusiness(b) {
-    var id = b[0], name = b[1], phone = digits(b[2]);
+    var phone = digits(b[2]);
     var attempts = phoneParamVariants(phone);
+    if (chosenVariant) {
+      // The param name is already known: try it first and skip the guessing.
+      attempts.sort(function (x) {
+        return Object.keys(x)[0] === chosenVariant ? -1 : 1;
+      });
+    }
 
     for (var i = 0; i < attempts.length; i++) {
       var base = attempts[i];
@@ -283,6 +291,7 @@ TEMPLATE = r"""/* Hive → Churn Win Tracker: lifetime orders per business
         }
       }
 
+      chosenVariant = variant;
       var s = summarise(dates, total == null ? fetched : total, complete);
       s.phoneMatched = sawPhone;
       s.variant = variant;
@@ -291,6 +300,24 @@ TEMPLATE = r"""/* Hive → Churn Win Tracker: lifetime orders per business
     }
     return { orders: null, first: "", last: "", distinctDays: 0, spanDays: 0,
              complete: false, phoneMatched: false, variant: null, fetched: 0, failed: true };
+  }
+
+  function saveCsv(csv) {
+    try {
+      var blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8" });
+      var a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "hive_orders_" + new Date().toISOString().slice(0, 10) + ".csv";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(function () { URL.revokeObjectURL(a.href); }, 2000);
+      console.log("%cSaved to your Downloads folder", "color:#0E9F6E");
+      return true;
+    } catch (e) {
+      console.warn("Could not save the file:", e.message);
+      return false;
+    }
   }
 
   function toCsv(rows) {
@@ -339,12 +366,18 @@ TEMPLATE = r"""/* Hive → Churn Win Tracker: lifetime orders per business
       console.warn(failed.length + " business(es) did not match the filter — first few:");
       console.table(failed.slice(0, 8));
     }
+    console.log("Working query param: " + (chosenVariant || "(none found)"));
     console.log(window.__hiveCsv.split("\r\n").slice(0, 6).join("\n") + "\n…");
-    try { await navigator.clipboard.writeText(window.__hiveCsv); console.log("CSV copied to clipboard"); }
-    catch (e) { console.log("Clipboard blocked — run: copy(window.__hiveCsv)"); }
+    saveCsv(window.__hiveCsv);
+    try { await navigator.clipboard.writeText(window.__hiveCsv); console.log("CSV also copied to clipboard"); }
+    catch (e) { console.log("Clipboard blocked — the file download above still works"); }
   }
 
   window.hiveOrders = { run: run, control: control, results: results,
+                        save: function () {
+                          if (!window.__hiveCsv) { console.warn("Run hiveOrders.run() first"); return; }
+                          if (!saveCsv(window.__hiveCsv)) console.log("Run: copy(window.__hiveCsv)");
+                        },
                         probe: function (name) {
                           var b = BUSINESSES.filter(function (x) { return (x[1] || "").toLowerCase().indexOf(String(name).toLowerCase()) !== -1; })[0];
                           if (!b) { console.warn("No business matching " + name); return; }
