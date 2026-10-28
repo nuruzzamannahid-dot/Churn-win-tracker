@@ -10,10 +10,10 @@
  * Then progress every 25 merchants, and finally a HIVEPASTE1 … HIVEPASTE0 block.
  *
  * If it prints "Load failed": the page's CSP blocks github.com. Then open
- *   https://raw.githubusercontent.com/nuruzzamannahid-dot/Churn-win-tracker/5a28f88f0523cdd13be34dbbadd2ca0e30ac5480/docs/hive-min.js
+ *   https://raw.githubusercontent.com/nuruzzamannahid-dot/Churn-win-tracker/27263f869bf20e1ff5090dda451edbb3fd053411/docs/hive-min.js
  * in a new tab, Ctrl+A, Ctrl+C, and paste it into the console instead.
  */
-fetch("https://raw.githubusercontent.com/nuruzzamannahid-dot/Churn-win-tracker/5a28f88f0523cdd13be34dbbadd2ca0e30ac5480/docs/hive-min.js")
+fetch("https://raw.githubusercontent.com/nuruzzamannahid-dot/Churn-win-tracker/27263f869bf20e1ff5090dda451edbb3fd053411/docs/hive-min.js")
   .then(r => r.ok ? r.text() : Promise.reject("HTTP " + r.status))
   .then(t => {
     // Exact version check, not a heuristic: only the fixed sweep contains this.
