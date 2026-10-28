@@ -87,8 +87,8 @@ TEMPLATE = r"""/* Hive → Churn Win Tracker: lifetime orders per business
       }
       return null;
     }
-    var pushRe = /self\.__next_f\.push\(\[1,\s*("(?:[^"\\]|\\.)*")\s*\]\)/g, m;
-    while ((m = pushRe.exec(text))) {
+    // matchAll only: an exec() loop is one stray /g literal away from hanging.
+    for (var m of text.matchAll(/self\.__next_f\.push\(\[1,\s*("(?:[^"\\]|\\.)*")\s*\]\)/g)) {
       var inner;
       try { inner = JSON.parse(m[1]); } catch (e) { continue; }
       inner.split("\n").forEach(function (line) {

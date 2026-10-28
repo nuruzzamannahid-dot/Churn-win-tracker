@@ -40,11 +40,10 @@
     if (r.status === 429) { await sleep(3000); return fetchPage(phone, page); }
     if (!r.ok) return null;
     var t = await r.text();
-    var ids = new Set(), days = new Set(), m;
-    var reId = /"consignmentId"\s*:\s*"([^"]+)"/g;
-    while ((m = reId.exec(t))) ids.add(m[1]);
-    var reDay = /"createdAt"\s*:\s*"(\d{4}-\d{2}-\d{2})/g;
-    while ((m = reDay.exec(t))) days.add(m[1]);
+    // matchAll only — see the note in hive-inline.js
+    var ids = new Set(), days = new Set();
+    for (var mi of t.matchAll(/"consignmentId"\s*:\s*"([^"]+)"/g)) ids.add(mi[1]);
+    for (var md of t.matchAll(/"createdAt"\s*:\s*"(\d{4}-\d{2}-\d{2})/g)) days.add(md[1]);
     return { text: t, ids: ids, days: days };
   }
 
