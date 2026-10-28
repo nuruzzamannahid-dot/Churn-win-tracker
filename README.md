@@ -17,7 +17,7 @@ Nuruzzaman Nahid.
 | `import_hive.py` | Turns a Hive export (CSV/TSV/JSON) into `src/biz_metrics.json` |
 | `index.html` | Built, self-contained dashboard (this is what gets deployed) |
 | `apps-script/` | Optional Google Apps Script backend for Google Sheet sync |
-| `docs/hive-export-snippet.js` | Console snippet to extract metrics when Hive has no CSV export |
+| `docs/hive-pull.js` | Console snippet that pulls every business page from Hive and copies a CSV |
 | `vercel.json` | `cleanUrls`, `trailingSlash`, cache headers |
 
 ## Hive metrics (lifetime orders · avg/day)
@@ -40,8 +40,12 @@ Column names are matched loosely (`Lifetime Orders`, `lifetime_orders`,
 `Total Orders`, `Active Days`, `active_day`…). To teach it new names, edit
 `ALIASES` at the top of `import_hive.py`.
 
-No export button in Hive? Run `docs/hive-export-snippet.js` in the browser
-console on the businesses page — it copies a matching CSV to the clipboard.
+No export button in Hive? Run `docs/hive-pull.js` in the browser console on the
+businesses page. Hive is a Next.js App Router app, so the tables arrive as RSC
+flight text rather than JSON; the snippet requests the same `/businesses` route
+page by page with your session cookie, auto-detects the id / orders / active-days
+keys, dedupes, and copies a ready-to-import CSV. It never touches your access
+token and sends nothing outside carrybee.com.
 
 ## Build
 
