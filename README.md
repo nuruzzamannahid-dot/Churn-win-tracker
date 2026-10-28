@@ -33,6 +33,10 @@ the CSV export but is not shown as its own column.
 They stay **hidden until metrics exist** — an all-empty dashboard looks broken,
 so `build.py` only makes them appear once at least one business has numbers.
 
+Partial imports show a **coverage chip** in the table toolbar — `Hive orders 349/540
+merchants` — because a dash means *not counted yet*, not *zero orders*. The chip
+disappears automatically once every business has an entry.
+
 ```bash
 python3 import_hive.py hive_export.csv     # writes src/biz_metrics.json, then builds
 python3 import_hive.py hive_export.csv --dry-run   # preview the match rate only
