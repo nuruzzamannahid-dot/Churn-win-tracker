@@ -21,6 +21,7 @@ Nuruzzaman Nahid.
 | `docs/hive-orders-pull.js` | Generated console script: pulls lifetime orders + order dates for all 540 businesses |
 | `docs/hive-pull.js` | Console snippet that pulls the business list itself (name / phone / active days) |
 | `make_hive_script.py` | Regenerates `docs/hive-orders-pull.js` with the business list embedded |
+| `test_pagination.js` | Mocked-Hive test for the puller's counting logic (`node test_pagination.js`) |
 | `vercel.json` | `cleanUrls`, `trailingSlash`, cache headers |
 
 ## Hive metrics (lifetime orders · avg/day)
@@ -72,10 +73,17 @@ Guard rails, because a wrong total is worse than no total:
   filter is silently ignored, every business would inherit the global total
 * each response must mention that business's own phone, otherwise it is flagged
   in the `failed` table rather than written to the CSV
-* **distinct order days is only reported when every order row was actually
-  seen** (it fetches the oldest page as well, so the first/last dates are real).
-  For merchants with hundreds of orders the importer falls back to the
-  first-to-last date span — see `active_days()` in `import_hive.py`.
+* **the count is the number of distinct order ids across every page**, never the
+  page size. The first version reused the page size as the total and reported a
+  wall of fake `100`s; Hive exposes no usable `meta.total`, so paginating to a
+  short page is the only honest way to count
+* **paginates until a short page appears** (`CFG.maxPages` × `CFG.limit` order
+  ceiling). If it cannot reach the end, the row is written **blank** and renders
+  as `—` rather than as a confident wrong number
+* a zero-order business is distinguished from a mis-typed query param by whether
+  the response is recognisably an order list (`parseOrders().listLike`)
+* distinct order days only comes from a complete page set, so first/last dates
+  are real; when pagination stops early nothing is guessed
 
 **Business list / active days as shown in Hive**
 
