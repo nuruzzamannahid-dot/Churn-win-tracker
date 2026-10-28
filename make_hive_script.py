@@ -45,10 +45,13 @@ TEMPLATE = r"""/* Hive → Churn Win Tracker: lifetime orders per business
   var BUSINESSES = __BUSINESSES__;   // [[id, name, phone], ...]
 
   var CFG = {
-    limit: 100,        // rows per request
+    // AR Baby Cloud measured 262 lifetime orders: pages of 100 were honoured
+    // (100 + 100 + 62), and limit=500 returned all 262 in a single request.
+    // So 500 keeps the sweep to one call per merchant with no extra cost.
+    limit: 500,        // rows per request
     delayMs: 120,      // pause between businesses; raise if Hive rate-limits
     pageDelayMs: 100,  // pause between pages of the same business
-    maxPages: 60,      // 60 x 100 = 6000 orders; beyond that the row is left blank
+    maxPages: 20,      // 20 x 500 = 10,000 orders; beyond that the row is left blank
     stopAfter: 0       // 0 = all; set e.g. 5 to trial-run
   };
 
