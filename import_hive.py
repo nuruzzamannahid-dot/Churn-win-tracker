@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import datetime
 import json
 import pathlib
 import re
@@ -38,6 +39,12 @@ ALIASES = {
                "orders", "ordercount", "numberoforders", "lifetimeordercount"},
     "days": {"activedays", "activeday", "daysactive", "lifetimeactivedays",
              "activedayscount", "noofactivedays", "active"},
+    "distinct": {"distinctorderdays", "distinctdays", "distinctactivedays",
+                 "orderdays", "distinctorderdates"},
+    "first": {"firstorderdate", "firstorder", "firstorderat", "earliestorder",
+              "earliestorderdate", "firstorderdateutc"},
+    "last": {"lastorderdate", "lastorder", "lastorderat", "latestorder",
+             "latestorderdate", "lastorderdateutc"},
     "revenue": {"lifetimerevenue", "totalrevenue", "revenue", "gmv",
                 "lifetimevalue", "totalspend", "lifetimegmv"},
 }
@@ -117,6 +124,30 @@ def unwrap(payload):
     raise SystemExit("Could not find a list of businesses in that JSON.")
 
 
+def to_date(v):
+    """'2026-10-28' / '2026-10-28T21:25:45.000Z' -> date, else None."""
+    s = str(v or "").strip()
+    m = re.match(r"(\d{4}-\d{2}-\d{2})", s)
+    if not m:
+        return None
+    try:
+        return datetime.date.fromisoformat(m.group(1))
+    except ValueError:
+        return None
+
+
+def active_days(distinct, first, last, explicit):
+    """Prefer the explicit number, then distinct order days, then the span."""
+    for v in (explicit, distinct):
+        n = parse_number(v)
+        if n is not None and n > 0:      # 0 means "no dates exported", not "inactive"
+            return int(n)
+    d1, d2 = to_date(first), to_date(last)
+    if d1 and d2 and d2 >= d1:
+        return (d2 - d1).days + 1
+    return None
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="Merge Hive metrics into the dashboard.")
     ap.add_argument("source", help="Hive export (.csv, .tsv or .json)")
@@ -161,8 +192,19 @@ def main() -> int:
         if not target:
             unmatched.append(bid or rec.get(mapping.get("phone", "")) or rec.get(mapping.get("name", "")) or "?")
             continue
-        entry = {"orders": parse_number(rec.get(mapping.get("orders", ""))),
-                 "days": parse_number(rec.get(mapping.get("days", "")))}
+        orders = parse_number(rec.get(mapping.get("orders", "")))
+        days = active_days(
+            rec.get(mapping.get("distinct", "")),
+            rec.get(mapping.get("first", "")),
+            rec.get(mapping.get("last", "")),
+            rec.get(mapping.get("days", "")),
+        )
+        entry = {"orders": orders, "days": days}
+        first, last = to_date(rec.get(mapping.get("first", ""))), to_date(rec.get(mapping.get("last", "")))
+        if first:
+            entry["first"] = first.isoformat()
+        if last:
+            entry["last"] = last.isoformat()
         if "revenue" in mapping:
             rev = parse_number(rec.get(mapping["revenue"]))
             if rev is not None:
@@ -180,6 +222,8 @@ def main() -> int:
 
     with_orders = sum(1 for m in metrics.values() if m.get("orders") is not None)
     zero_days = sum(1 for m in metrics.values() if m.get("orders") and not m.get("days"))
+    with_days = sum(1 for m in metrics.values() if m.get("days"))
+    print(f"Rows with active days: {with_days}")
     print(f"Rows with orders     : {with_orders}")
     if zero_days:
         print(f"WARNING: {zero_days} row(s) have orders but no active days -> avg/day blank")

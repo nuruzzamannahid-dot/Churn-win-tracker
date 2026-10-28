@@ -17,7 +17,9 @@ Nuruzzaman Nahid.
 | `import_hive.py` | Turns a Hive export (CSV/TSV/JSON) into `src/biz_metrics.json` |
 | `index.html` | Built, self-contained dashboard (this is what gets deployed) |
 | `apps-script/` | Optional Google Apps Script backend for Google Sheet sync |
-| `docs/hive-pull.js` | Console snippet that pulls every business page from Hive and copies a CSV |
+| `docs/hive-orders-pull.js` | Generated console script: pulls lifetime orders + order dates for all 540 businesses |
+| `docs/hive-pull.js` | Console snippet that pulls the business list itself (name / phone / active days) |
+| `make_hive_script.py` | Regenerates `docs/hive-orders-pull.js` with the business list embedded |
 | `vercel.json` | `cleanUrls`, `trailingSlash`, cache headers |
 
 ## Hive metrics (lifetime orders · avg/day)
@@ -40,12 +42,38 @@ Column names are matched loosely (`Lifetime Orders`, `lifetime_orders`,
 `Total Orders`, `Active Days`, `active_day`…). To teach it new names, edit
 `ALIASES` at the top of `import_hive.py`.
 
-No export button in Hive? Run `docs/hive-pull.js` in the browser console on the
-businesses page. Hive is a Next.js App Router app, so the tables arrive as RSC
-flight text rather than JSON; the snippet requests the same `/businesses` route
-page by page with your session cookie, auto-detects the id / orders / active-days
-keys, dedupes, and copies a ready-to-import CSV. It never touches your access
-token and sends nothing outside carrybee.com.
+### Getting the numbers out of Hive (no API access needed)
+
+Hive is a Next.js App Router app: table data arrives as RSC "flight" text, so
+there is no copyable JSON in the Network tab. Both helpers below run in your own
+browser with your session cookie and never touch your access token.
+
+**Lifetime orders + order dates (the one that fills these columns)**
+
+```bash
+python3 make_hive_script.py      # embeds the current 540 businesses
+```
+
+Then on `hive.carrybee.com/orders`, open DevTools → Console, paste
+`docs/hive-orders-pull.js`, Enter, and `await hiveOrders.run()`. It queries the
+`/orders` route once per business by phone, and reports the total, first order
+date, last order date and distinct order days. ~4 minutes for 540 businesses.
+
+Guard rails, because a wrong total is worse than no total:
+
+* a **control query** with a nonsense phone must return 0 orders first — if the
+  filter is silently ignored, every business would inherit the global total
+* each response must mention that business's own phone, otherwise it is flagged
+  in the `failed` table rather than written to the CSV
+* **distinct order days is only reported when every order row was actually
+  seen** (it fetches the oldest page as well, so the first/last dates are real).
+  For merchants with hundreds of orders the importer falls back to the
+  first-to-last date span — see `active_days()` in `import_hive.py`.
+
+**Business list / active days as shown in Hive**
+
+`docs/hive-pull.js` pages `/businesses` instead, for when you want Hive's own
+active-days figure rather than one derived from order dates.
 
 ## Build
 
