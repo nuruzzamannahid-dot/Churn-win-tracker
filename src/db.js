@@ -23,7 +23,13 @@
      localStorage, so this file stays safe to publish. */
   var DEFAULT_URL = "https://jacsvbpzkjnhrhcklyje.supabase.co";
 
-  var cfg = { url: DEFAULT_URL, key: "" };
+  /* The publishable ("anon") key is also public: it ships in the page and is
+     useless without the row level security policies in supabase/schema.sql,
+     which only let it read rows and update kam / outcome / notes. The
+     service_role / secret key must never appear here. */
+  var DEFAULT_KEY = "sb_publishable_KB6y93VsBmWh73lHENTs-w_LEW0-PyU";
+
+  var cfg = { url: DEFAULT_URL, key: DEFAULT_KEY };
 
   function trimUrl(u) {
     return String(u || "").trim().replace(/\/+$/, "");
@@ -41,16 +47,17 @@
 
   function loadConfig() {
     cfg.url = DEFAULT_URL;
-    cfg.key = "";
+    cfg.key = DEFAULT_KEY;
     try {
       var raw = localStorage.getItem(CFG_KEY);
       if (raw) {
         var s = JSON.parse(raw);
         var u = trimUrl(s.url);
-        cfg.url = u || DEFAULT_URL;
-        cfg.key = String(s.key || "").trim();
+        var k = String(s.key || "").trim();
+        if (u) cfg.url = u;
+        if (k) cfg.key = k;
       }
-    } catch (e) { cfg.url = DEFAULT_URL; cfg.key = ""; }
+    } catch (e) { cfg.url = DEFAULT_URL; cfg.key = DEFAULT_KEY; }
     return cfg;
   }
 
@@ -89,8 +96,11 @@
         clearTimeout(timer);
         if (opts.signal) opts.signal.removeEventListener("abort", onAbort);
 
-        if (res.status === 401 || res.status === 403) {
-          throw new Error("auth: the anon key was rejected (" + res.status + ")");
+        if (res.status === 401) {
+          throw new Error("auth: the key was rejected (401) — use the anon / publishable key");
+        }
+        if (res.status === 403) {
+          throw new Error("blocked by row level security (403) — has supabase/schema.sql been run?");
         }
         if (res.status === 404) {
           throw new Error("missing table — run supabase/schema.sql first (404)");
@@ -256,6 +266,7 @@
   root.DB = {
     configure: configure,
     defaultUrl: function () { return DEFAULT_URL; },
+    defaultKey: function () { return DEFAULT_KEY; },
     loadConfig: loadConfig,
     config: function () { return { url: cfg.url, key: cfg.key }; },
     ready: ready,

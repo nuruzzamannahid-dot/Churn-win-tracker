@@ -1252,7 +1252,7 @@
     if(!m) return;
     var c = DB.config();
     el("dbUrl").value = c.url || DB.defaultUrl() || "";
-    el("dbKey").value = c.key || "";
+    el("dbKey").value = c.key || DB.defaultKey() || "";
     renderDbUI();
     m.classList.add("open");
     setTimeout(function(){ el("dbUrl").focus(); }, 40);

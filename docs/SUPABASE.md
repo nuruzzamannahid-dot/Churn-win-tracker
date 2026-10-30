@@ -19,9 +19,10 @@ the closest to Dhaka). Then copy two values from *Project Settings → API Keys*
 
 ## 2. Create the schema
 
-Project URL is already baked into the page
-(`https://jacsvbpzkjnhrhcklyje.supabase.co`), so the connect dialog only needs
-the anon key.
+The project URL and the publishable (anon) key are already baked into the page,
+so a fresh browser connects with no setup. To point the app at a different
+project, use the connect dialog — values saved there win over the shipped
+defaults.
 
 SQL → New query → paste all of `supabase/schema.sql` → Run.
 
@@ -60,9 +61,9 @@ Prefer no terminal? Import the CSV from the Studio:
 
 ## 4. Connect the dashboard
 
-Open the site, click the **Database off** pill in the header, paste the project
-URL and anon key, press **Save & connect**. The settings are stored in
-`localStorage` for that browser, per device.
+Nothing to do — the shipped URL and publishable key connect on load. To override
+them (another project, or a damaged `localStorage`), click the pill in the header
+and press **Save & connect**.
 
 ## What "load management" means here
 
