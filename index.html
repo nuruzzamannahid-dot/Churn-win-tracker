@@ -513,9 +513,9 @@
       <label for="dbKey" style="margin-top:12px">Anon public key</label>
       <input type="text" id="dbKey" placeholder="eyJhbGciOiJIUzI1NiIs…" spellcheck="false" autocomplete="off">
       <div class="hintline">
-        Use the <b>anon public</b> key from Project Settings → API. Never paste the
+        Use the <b>anon public</b> key from Project Settings → API Keys. Never paste the
         <code>service_role</code> key here — it bypasses row level security and would be
-        readable by anyone who opens this page.
+        readable by anyone who opens this page. The key is stored in this browser only.
       </div>
 
       <div class="syncstat" id="syncStat">Not connected — paste your project URL and anon key above.</div>
@@ -560,7 +560,14 @@
   "use strict";
 
   var CFG_KEY = "cwt.db.v1";
-  var cfg = { url: "", key: "" };
+
+  /* The project URL is not a secret — it is visible in every request the page
+     makes. Baking it in means a new browser only has to be given the anon key.
+     The key itself is never committed: it is typed once per browser and kept in
+     localStorage, so this file stays safe to publish. */
+  var DEFAULT_URL = "https://jacsvbpzkjnhrhcklyje.supabase.co";
+
+  var cfg = { url: DEFAULT_URL, key: "" };
 
   function trimUrl(u) {
     return String(u || "").trim().replace(/\/+$/, "");
@@ -577,14 +584,17 @@
   }
 
   function loadConfig() {
+    cfg.url = DEFAULT_URL;
+    cfg.key = "";
     try {
       var raw = localStorage.getItem(CFG_KEY);
       if (raw) {
         var s = JSON.parse(raw);
-        cfg.url = trimUrl(s.url);
+        var u = trimUrl(s.url);
+        cfg.url = u || DEFAULT_URL;
         cfg.key = String(s.key || "").trim();
       }
-    } catch (e) { cfg.url = ""; cfg.key = ""; }
+    } catch (e) { cfg.url = DEFAULT_URL; cfg.key = ""; }
     return cfg;
   }
 
@@ -789,6 +799,7 @@
 
   root.DB = {
     configure: configure,
+    defaultUrl: function () { return DEFAULT_URL; },
     loadConfig: loadConfig,
     config: function () { return { url: cfg.url, key: cfg.key }; },
     ready: ready,
@@ -1512,7 +1523,7 @@
     var m = el("syncModal");
     if(!m) return;
     var c = DB.config();
-    el("dbUrl").value = c.url || "";
+    el("dbUrl").value = c.url || DB.defaultUrl() || "";
     el("dbKey").value = c.key || "";
     renderDbUI();
     m.classList.add("open");

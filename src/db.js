@@ -16,7 +16,14 @@
   "use strict";
 
   var CFG_KEY = "cwt.db.v1";
-  var cfg = { url: "", key: "" };
+
+  /* The project URL is not a secret — it is visible in every request the page
+     makes. Baking it in means a new browser only has to be given the anon key.
+     The key itself is never committed: it is typed once per browser and kept in
+     localStorage, so this file stays safe to publish. */
+  var DEFAULT_URL = "https://jacsvbpzkjnhrhcklyje.supabase.co";
+
+  var cfg = { url: DEFAULT_URL, key: "" };
 
   function trimUrl(u) {
     return String(u || "").trim().replace(/\/+$/, "");
@@ -33,14 +40,17 @@
   }
 
   function loadConfig() {
+    cfg.url = DEFAULT_URL;
+    cfg.key = "";
     try {
       var raw = localStorage.getItem(CFG_KEY);
       if (raw) {
         var s = JSON.parse(raw);
-        cfg.url = trimUrl(s.url);
+        var u = trimUrl(s.url);
+        cfg.url = u || DEFAULT_URL;
         cfg.key = String(s.key || "").trim();
       }
-    } catch (e) { cfg.url = ""; cfg.key = ""; }
+    } catch (e) { cfg.url = DEFAULT_URL; cfg.key = ""; }
     return cfg;
   }
 
@@ -245,6 +255,7 @@
 
   root.DB = {
     configure: configure,
+    defaultUrl: function () { return DEFAULT_URL; },
     loadConfig: loadConfig,
     config: function () { return { url: cfg.url, key: cfg.key }; },
     ready: ready,

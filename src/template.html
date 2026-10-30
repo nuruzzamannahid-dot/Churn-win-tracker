@@ -513,9 +513,9 @@
       <label for="dbKey" style="margin-top:12px">Anon public key</label>
       <input type="text" id="dbKey" placeholder="eyJhbGciOiJIUzI1NiIs…" spellcheck="false" autocomplete="off">
       <div class="hintline">
-        Use the <b>anon public</b> key from Project Settings → API. Never paste the
+        Use the <b>anon public</b> key from Project Settings → API Keys. Never paste the
         <code>service_role</code> key here — it bypasses row level security and would be
-        readable by anyone who opens this page.
+        readable by anyone who opens this page. The key is stored in this browser only.
       </div>
 
       <div class="syncstat" id="syncStat">Not connected — paste your project URL and anon key above.</div>
@@ -1251,7 +1251,7 @@
     var m = el("syncModal");
     if(!m) return;
     var c = DB.config();
-    el("dbUrl").value = c.url || "";
+    el("dbUrl").value = c.url || DB.defaultUrl() || "";
     el("dbKey").value = c.key || "";
     renderDbUI();
     m.classList.add("open");

@@ -19,6 +19,10 @@ the closest to Dhaka). Then copy two values from *Project Settings → API Keys*
 
 ## 2. Create the schema
 
+Project URL is already baked into the page
+(`https://jacsvbpzkjnhrhcklyje.supabase.co`), so the connect dialog only needs
+the anon key.
+
 SQL → New query → paste all of `supabase/schema.sql` → Run.
 
 That creates:
