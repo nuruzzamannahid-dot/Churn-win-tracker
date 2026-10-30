@@ -323,12 +323,12 @@
         </div>
         <div>
           <h1>Churn Win Tracker</h1>
-          <div class="sub"><b id="subCount">540</b> churned &amp; inactive merchants &middot; win-back calling campaign &middot; KAM: Ahmed Asif Rashid &amp; Nuruzzaman Nahid</div>
+          <div class="sub"><b id="subCount">—</b> churned &amp; inactive merchants &middot; win-back calling campaign &middot; KAM: Ahmed Asif Rashid &amp; Nuruzzaman Nahid</div>
         </div>
       </div>
       <div class="actions">
-        <button class="syncpill" id="syncPill" data-st="off" title="Google Sheet sync — click to configure">
-          <span class="sdot"></span><span id="syncPillTxt">Sheet sync off</span>
+        <button class="syncpill" id="syncPill" data-st="off" title="Supabase connection — click to configure">
+          <span class="sdot"></span><span id="syncPillTxt">Database off</span>
         </button>
         <div class="whoami">
           <label for="whoSel">Acting as</label>
@@ -503,37 +503,37 @@
 <div class="modal" id="syncModal">
   <div class="sheet">
     <div class="sheet-hd">
-      <h3>Google Sheet sync</h3>
+      <h3>Supabase database</h3>
       <button class="xbtn" id="syncClose" aria-label="Close">&times;</button>
     </div>
     <div class="sheet-bd">
-      <label for="syncUrl">Apps Script web-app URL</label>
-      <input type="url" id="syncUrl" placeholder="https://script.google.com/macros/s/…/exec" spellcheck="false">
+      <label for="dbUrl">Project URL</label>
+      <input type="url" id="dbUrl" placeholder="https://xxxxxxxxxxxx.supabase.co" spellcheck="false" autocomplete="off">
+
+      <label for="dbKey" style="margin-top:12px">Anon public key</label>
+      <input type="text" id="dbKey" placeholder="eyJhbGciOiJIUzI1NiIs…" spellcheck="false" autocomplete="off">
       <div class="hintline">
-        Every outcome, KAM and note change is written straight into
-        <b>Churn &amp; Inactive merchant List</b> (columns E–H, plus lifetime orders and
-        average order in I–J), and the dashboard pulls the other KAM's updates back.
-        <b>Push orders</b> writes those two columns for all merchants at once.
+        Use the <b>anon public</b> key from Project Settings → API. Never paste the
+        <code>service_role</code> key here — it bypasses row level security and would be
+        readable by anyone who opens this page.
       </div>
 
-      <div class="syncstat" id="syncStat">Not connected — paste the web-app URL above.</div>
+      <div class="syncstat" id="syncStat">Not connected — paste your project URL and anon key above.</div>
 
       <div class="rowbtns">
         <button class="btn btn-primary" id="syncSave">Save &amp; connect</button>
-        <button class="btn btn-line" id="syncNow">Sync now</button>
-        <button class="btn btn-line" id="syncPushAll">Push all local</button>
-        <button class="btn btn-line" id="syncPushOrders" title="Write lifetime orders and average order for every merchant">Push orders</button>
+        <button class="btn btn-line" id="syncNow">Refresh now</button>
         <button class="btn btn-danger" id="syncDisconnect">Disconnect</button>
       </div>
 
       <div style="margin-top:18px;padding-top:16px;border-top:1px solid var(--line)">
         <label style="margin-bottom:8px">One-time setup</label>
         <ol class="steps">
-          <li>Open the sheet → <b>Extensions → Apps Script</b></li>
-          <li>Paste the <code>Code.gs</code> from this project's <code>apps-script/</code> folder</li>
-          <li><b>Deploy → New deployment → Web app</b></li>
-          <li>Execute as <b>Me</b>, Who has access <b>Anyone</b></li>
-          <li>Copy the <code>/exec</code> URL and paste it above</li>
+          <li>Create a project at <b>supabase.com</b></li>
+          <li>SQL → New query → paste and run <code>supabase/schema.sql</code></li>
+          <li>Load the data: <code>python3 supabase/import.py --push &lt;url&gt; &lt;anon-key&gt;</code></li>
+          <li>Project Settings → API → copy the <b>Project URL</b> and <b>anon public</b> key</li>
+          <li>Paste them above and press <b>Save &amp; connect</b></li>
         </ol>
       </div>
     </div>
@@ -542,7 +542,7 @@
 
 <div class="toast" id="toast"></div>
 
-<script id="biz-data" type="application/json">__DATA__</script>
+<script>__DB__</script>
 <script>
 (function(){
   "use strict";
@@ -565,91 +565,37 @@
   var S_BY_ID = {}; STATUSES.forEach(function(s){ S_BY_ID[s.id]=s; });
   var NUMWIN = { won_back:1, activated:1, not_interested:1, wrong_number:1 };
 
-  var RAW = JSON.parse(document.getElementById("biz-data").textContent);
-  function numOrNull(v){
-    if(v === null || v === undefined || v === "") return null;
-    var n = Number(v);
-    return isFinite(n) ? n : null;
-  }
-  var BIZ = RAW.map(function(r){
-    return {
-      id:String(r[0]), reason:r[1], name:r[2], phone:r[3],
-      orders:numOrNull(r[4]),      // lifetime orders (Hive)
-      days:numOrNull(r[5]),        // active days (Hive)
-      perMonth:numOrNull(r[6]),    // historical orders/month, for the projection
-      est:(r[7] === 1),            // true when that rate is inferred, not measured
-      last:r[8] || null,           // ISO date of most recent Hive order (reference)
-      hiveChurn:r[9] === 1         // 1 when Hive's own churn check flags the merchant
-    };
-  });
-  var BYID = {}; BIZ.forEach(function(b){ BYID[b.id]=b; });
-
-  /* Churn is detected from Hive itself, not from a sheet label: Hive's own
-     check flags merchants with no order in the last 30+ days. That flag comes
-     from src/hive_churn_30plus_days.csv and is authoritative — it overrides any
-     pre-labelled sheet column and any date-based guess. */
-  function hiveChurn(b){
-    return !!b.hiveChurn;
-  }
-
-  var LS_KEY = "cwt.v1";
+  /* ============ data ============
+     Every business row and every call record lives in Supabase — see
+     supabase/schema.sql. This page holds one page of rows plus the single
+     aggregate row from v_dashboard, never the whole 30,507-row table, so the
+     bundle stays small and paging is an indexed query on the server. */
+  var UI_KEY = "cwt.ui.v2";
   var PER_PAGE = 50;
+  var ROWS = [];              // rows on the current page
+  var ROW_BY_ID = {};         // the same rows, keyed, for the edit handlers
+  var DASH = null;            // the v_dashboard row
+  var TOTAL_MATCHED = 0;      // rows matching the current filters
+  var seq = 0;                // bumps on every new page request
+  var pageCtl = null;         // aborts a superseded page request
+  var pollTimer = null;
 
-  /* ============ state ============ */
-  var state = load();
+  function hiveChurn(b){ return !!(b && b.hiveChurn); }
 
-  function defaultAssignments(){
-    // alternate so both KAMs get an even split with a similar Churn/Inactive mix
-    var a = {};
-    BIZ.forEach(function(b,i){ a[b.id] = KAMS[i % 2].id; });
-    return a;
-  }
-  // Guarantee every merchant has a KAM. Without this, an empty or partial
-  // assignment map (e.g. from a restore) would silently dump the whole list
-  // on whichever KAM is first.
-  function ensureAssignments(s){
-    if(!s.assignments || typeof s.assignments !== "object") s.assignments = {};
-    var known = {};
-    KAMS.forEach(function(k){ known[k.id] = 1; });
-    for(var i=0;i<BIZ.length;i++){
-      var id = BIZ[i].id, cur = s.assignments[id];
-      if(!cur || !known[cur]) s.assignments[id] = KAMS[i % KAMS.length].id;
-    }
-    // drop assignments for ids that no longer exist
-    Object.keys(s.assignments).forEach(function(id){
-      if(!BYID[id]) delete s.assignments[id];
-    });
-    return s;
-  }
-  function load(){
-    var base = { v:1, actingAs:KAMS[0].id, assignments:defaultAssignments(), records:{}, log:[] };
+  /* Only the "acting as" preference is kept locally. Call data is not cached:
+     a refresh always reflects what is actually in the database. */
+  var ui = (function(){
     try{
-      var raw = localStorage.getItem(LS_KEY);
-      if(!raw) return base;
-      var s = JSON.parse(raw);
-      if(!s || s.v !== 1) return base;
-      s.actingAs = s.actingAs || base.actingAs;
-      s.records = s.records || {};
-      s.log = s.log || [];
-      return ensureAssignments(s);
-    }catch(e){ return base; }
-  }
-  var saveTimer = null;
-  function save(){
-    clearTimeout(saveTimer);
-    saveTimer = setTimeout(function(){
-      try{ localStorage.setItem(LS_KEY, JSON.stringify(state)); }
-      catch(e){ toast("Could not save — storage full or blocked"); }
-    }, 120);
+      var s = JSON.parse(localStorage.getItem(UI_KEY) || "{}");
+      return { actingAs: (s && s.actingAs) || KAMS[0].id };
+    }catch(e){ return { actingAs: KAMS[0].id }; }
+  })();
+  function saveUi(){
+    try{ localStorage.setItem(UI_KEY, JSON.stringify(ui)); }catch(e){}
   }
 
-  function rec(id){
-    var r = state.records[id];
-    if(!r) { r = state.records[id] = { s:"pending", n:"", t:0 }; }
-    return r;
-  }
-  function statusOf(id){ var r=state.records[id]; return (r && r.s) || "pending"; }
-  function kamOf(id){ return state.assignments[id] || KAMS[0].id; }
+  function statusOf(b){ return (b && b.outcome) || "pending"; }
+  function kamOf(b){ return (b && b.kam) || KAMS[0].id; }
   function isWin(s){ return !!WINS[s]; }
   function isContacted(s){ return s !== "pending"; }
 
@@ -699,48 +645,29 @@
 
   /* ============ derived ============ */
   function stats(){
-    var out = {
-      total:BIZ.length, churn:0, inactive:0, contacted:0, won:0, pending:0,
-      byStatus:{}, byKam:{}
-    };
-    STATUSES.forEach(function(s){ out.byStatus[s.id]=0; });
+    var d = DASH || {};
+    var out = { total:d.total||0, churn:d.churn||0, inactive:d.inactive||0,
+                contacted:d.contacted||0, won:d.won||0, pending:d.pending||0,
+                metricsKnown:d.metrics_known||0, byStatus:{}, byKam:{} };
+    STATUSES.forEach(function(s){ out.byStatus[s.id] = (d.by_status && d.by_status[s.id]) || 0; });
     KAMS.forEach(function(k){
-      out.byKam[k.id] = { assigned:0, contacted:0, won:0, wonBack:0, activated:0,
-                          notInterested:0, noAnswer:0, callback:0, pending:0,
-                          churnTotal:0, churnWon:0, inactiveTotal:0, inactiveWon:0 };
-    });
-    BIZ.forEach(function(b){
-      var s = statusOf(b.id), k = kamOf(b.id);
-      if(hiveChurn(b)) out.churn++; else out.inactive++;
-      out.byStatus[s]++;
-      if(isContacted(s)) out.contacted++;
-      if(isWin(s)) out.won++;
-      if(s === "pending") out.pending++;
-
-      var kk = out.byKam[k]; if(!kk) return;
-      kk.assigned++;
-      if(isContacted(s)) kk.contacted++;
-      if(isWin(s)) kk.won++;
-      if(s==="won_back") kk.wonBack++;
-      if(s==="activated") kk.activated++;
-      if(s==="not_interested") kk.notInterested++;
-      if(s==="no_answer") kk.noAnswer++;
-      if(s==="callback") kk.callback++;
-      if(s==="pending") kk.pending++;
-      if(hiveChurn(b)){ kk.churnTotal++; if(isWin(s)) kk.churnWon++; }
-      else { kk.inactiveTotal++; if(isWin(s)) kk.inactiveWon++; }
+      var src = (d.by_kam && d.by_kam[k.id]) || {};
+      out.byKam[k.id] = {
+        assigned:src.assigned||0, contacted:src.contacted||0, won:src.won||0,
+        wonBack:src.wonBack||0, activated:src.activated||0,
+        notInterested:src.notInterested||0, noAnswer:src.noAnswer||0,
+        callback:src.callback||0, pending:src.pending||0,
+        churnTotal:src.churnTotal||0, churnWon:src.churnWon||0,
+        inactiveTotal:src.inactiveTotal||0, inactiveWon:src.inactiveWon||0
+      };
     });
     return out;
   }
   function todayStats(){
-    var d = todayKey(), contacted=0, wins=0;
-    state.log.forEach(function(l){
-      if((l.t||"").slice(0,10) !== d) return;
-      if(l.to && isContacted(l.to)) contacted++;
-      if(l.to && isWin(l.to)) wins++;
-    });
-    return { contacted:contacted, wins:wins };
+    return { contacted:(DASH && DASH.today_calls)||0, wins:(DASH && DASH.today_wins)||0 };
   }
+  function metricsKnown(){ return DASH ? (DASH.metrics_known || 0) : 0; }
+  function totalCount(){ return DASH ? (DASH.total || 0) : 0; }
 
   /* ============ render: KPI ============ */
   function renderKPIs(){
@@ -795,10 +722,9 @@
       '</div>';
     }).join("");
 
-    var pctDone = t.contacted/t.total*100;
     el("teamBar").innerHTML =
-      '<i style="width:'+(t.won/t.total*100).toFixed(1)+'%;background:#0E9F6E"></i>'+
-      '<i style="width:'+((t.contacted-t.won)/t.total*100).toFixed(1)+'%;background:#94A3B8"></i>';
+      '<i style="width:'+(t.total?(t.won/t.total*100).toFixed(1):0)+'%;background:#0E9F6E"></i>'+
+      '<i style="width:'+(t.total?((t.contacted-t.won)/t.total*100).toFixed(1):0)+'%;background:#94A3B8"></i>';
     el("teamProgTxt").textContent = t.contacted+" / "+t.total+" contacted";
     el("teamPct").textContent = pct(t.contacted,t.total)+"% complete";
     el("teamRemain").textContent = (t.total-t.contacted)+" left";
@@ -812,7 +738,7 @@
     STATUSES.forEach(function(s){
       var n = t.byStatus[s.id] || 0;
       if(!n) return;
-      var len = n/total*C;
+      var len = total ? n/total*C : 0;
       segs += '<circle cx="75" cy="75" r="'+R+'" fill="none" stroke="'+s.fg+'" stroke-width="19" '+
               'stroke-dasharray="'+(len-1.5).toFixed(2)+' '+(C-len+1.5).toFixed(2)+'" '+
               'stroke-dashoffset="'+(-offset).toFixed(2)+'"></circle>';
@@ -829,12 +755,10 @@
     el("donutBig").textContent = pct(t.contacted,t.total)+"%";
     el("legend").innerHTML = legend || '<div class="lg"><span class="nm">No data yet</span></div>';
 
-    var churnDone = 0, inactDone = 0, churnWon=0, inactWon=0;
-    BIZ.forEach(function(b){
-      var s = statusOf(b.id);
-      if(hiveChurn(b)){ if(isContacted(s)) churnDone++; if(isWin(s)) churnWon++; }
-      else { if(isContacted(s)) inactDone++; if(isWin(s)) inactWon++; }
-    });
+    var cp = (DASH && DASH.churn_progress) || {};
+    var ip = (DASH && DASH.inactive_progress) || {};
+    var churnDone = cp.called || 0, churnWon = cp.won || 0;
+    var inactDone = ip.called || 0, inactWon = ip.won || 0;
     el("churnTxt").textContent = churnDone + " / " + t.churn + " called · " + churnWon + " won back";
     el("inactiveTxt").textContent = inactDone + " / " + t.inactive + " called · " + inactWon + " activated";
     el("churnBar").style.width = (t.churn ? churnDone/t.churn*100 : 0) + "%";
@@ -845,63 +769,6 @@
   var filters = { q:"", kam:"", status:"", reason:"Churn", sortKey:"orders", sortDir:"desc" };
   var page = 1;
 
-  function filtered(){
-    var q = filters.q.trim().toLowerCase();
-    return BIZ.filter(function(b){
-      if(filters.reason === "Churn" && !hiveChurn(b)) return false;
-      if(filters.reason === "Inactive" && hiveChurn(b)) return false;
-      if(filters.kam && kamOf(b.id) !== filters.kam) return false;
-      var s = statusOf(b.id);
-      if(filters.status){
-        if(filters.status === "__open__"){ if(isContacted(s)) return false; }
-        else if(s !== filters.status) return false;
-      }
-      if(q){
-        var hay = (b.name+" "+b.phone+" "+b.id).toLowerCase();
-        if(hay.indexOf(q) === -1) return false;
-      }
-      return true;
-    }).sort(function(a, b){
-      var av = a[filters.sortKey], bv = b[filters.sortKey];
-      av = (av === null || av === undefined || av === "") ? null : av;
-      bv = (bv === null || bv === undefined || bv === "") ? null : bv;
-      // A missing value sorts last in both directions: "—" first is never useful.
-      if(av === null && bv === null) return 0;
-      if(av === null) return 1;
-      if(bv === null) return -1;
-      if(filters.sortDir === "desc") return bv - av;
-      return av - bv;
-    });
-  }
-
-  function copyText(text){
-    if(navigator.clipboard && navigator.clipboard.writeText){
-      return navigator.clipboard.writeText(text);
-    }
-    var ta = document.createElement("textarea");
-    ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
-    document.body.appendChild(ta); ta.select();
-    try{ document.execCommand("copy"); }catch(e){}
-    document.body.removeChild(ta);
-    return Promise.resolve();
-  }
-
-  /* Copies ID, name and phone for whatever the filters currently show, so a
-     churn call list can be pasted straight into a sheet. */
-  function copyList(){
-    var rows = filtered();
-    if(!rows.length){ toast("Nothing to copy — clear the filters first"); return; }
-    var text = rows.map(function(b){
-      var name = String(b.name).replace(/[\t\r\n]+/g, " ");
-      return b.id + "\t" + name + "\t" + b.phone;
-    }).join("\n");
-    copyText(text).then(function(){
-      toast("Copied " + rows.length + " rows · ID, name, phone");
-    }, function(){
-      toast("Copy blocked by the browser — use Export CSV instead");
-    });
-  }
-
   function toggleSort(key){
     if(filters.sortKey === key){
       filters.sortDir = filters.sortDir === "desc" ? "asc" : "desc";
@@ -909,80 +776,77 @@
       filters.sortKey = key;
       filters.sortDir = "desc";
     }
-    // update sort direction indicators
-    document.querySelectorAll(".sortdir").forEach(function(el){
-      el.textContent = "";
-    });
+    document.querySelectorAll(".sortdir").forEach(function(el2){ el2.textContent = ""; });
     var sd = el("sortdir-"+key);
     if(sd) sd.textContent = filters.sortDir === "desc" ? "\u25BC" : "\u25B2";
     page = 1;
-    renderTable();
+    loadPage();
+  }
+
+  var noteTimers = {};
+  function queueNote(id, val){
+    var b = ROW_BY_ID[id];
+    if(b) b.notes = val;
+    clearTimeout(noteTimers[id]);
+    noteTimers[id] = setTimeout(function(){ patchRow(id, { notes:val }); }, 700);
+  }
+
+  function rowHtml(b, idx){
+    var s = statusOf(b), st = S_BY_ID[s] || S_BY_ID.pending, k = kamOf(b);
+    var kObj = KAMS.filter(function(x){return x.id===k;})[0] || KAMS[0];
+    var kOpts = KAMS.map(function(x){
+      return '<option value="'+x.id+'"'+(x.id===k?' selected':'')+'>'+esc(x.name.split(" ")[0])+'</option>';
+    }).join("");
+    var sOpts = STATUSES.map(function(x){
+      return '<option value="'+x.id+'"'+(x.id===s?' selected':'')+'>'+esc(x.label)+'</option>';
+    }).join("");
+    return '<tr class="'+(isWin(s)?'winrow':'')+'">'+
+      '<td style="color:var(--soft);font-size:11px">'+idx+'</td>'+
+      '<td class="bizid"><span class="idwrap">'+esc(b.id)+
+        '<button class="copy" data-copy="'+esc(b.id)+'" title="Copy business ID">'+
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>'+
+        '</button></span></td>'+
+      '<td class="biz"><span class="bname" title="'+esc(b.name)+'">'+esc(b.name)+'</span></td>'+
+      '<td><a class="phone" href="tel:'+esc(b.phone)+'">'+esc(fmtPhone(b.phone))+'</a> '+
+        '<button class="copy" data-copy="'+esc(b.phone)+'" title="Copy number">'+
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>'+
+        '</button></td>'+
+      '<td class="num mx'+(b.orders===null?' zero':'')+'">'+fmtCount(b.orders)+'</td>'+
+      '<td class="num avg mx">'+fmtAvg(avgPerDay(b))+'</td>'+
+      '<td><span class="pill" style="color:'+(hiveChurn(b)?"#B91C1C":"#15803d")+';background:'+(hiveChurn(b)?"#FEF2F2":"#F0FDF4")+'">'+(hiveChurn(b)?"Churn":"Active")+'</span></td>'+
+      '<td><select class="kam" data-kam="'+esc(b.id)+'" style="color:'+kObj.color+';border-color:'+kObj.color+'33">'+kOpts+'</select></td>'+
+      '<td><select class="st" data-st="'+esc(b.id)+'" style="color:'+st.fg+';background-color:'+st.bg+'">'+sOpts+'</select></td>'+
+      '<td><input class="note" data-note="'+esc(b.id)+'" value="'+esc(b.notes||"")+'" placeholder="Add a note…"></td>'+
+      '<td class="when">'+relTime(b.updated)+'</td>'+
+    '</tr>';
   }
 
   function renderTable(){
-    var rows = filtered();
-    var per = PER_PAGE > 0 ? PER_PAGE : Math.max(1, rows.length);
-    var pages = Math.max(1, Math.ceil(rows.length/per));
+    var per = PER_PAGE > 0 ? PER_PAGE : Math.max(1, TOTAL_MATCHED);
+    var pages = Math.max(1, Math.ceil(TOTAL_MATCHED/per));
     if(page > pages) page = pages;
-    var slice = rows.slice((page-1)*per, page*per);
-
-    el("tbody").innerHTML = slice.length ? slice.map(function(b, i){
-      var s = statusOf(b.id), st = S_BY_ID[s], k = kamOf(b.id), r = state.records[b.id];
-      var kObj = KAMS.filter(function(x){return x.id===k;})[0] || KAMS[0];
-      var kOpts = KAMS.map(function(x){
-        return '<option value="'+x.id+'"'+(x.id===k?' selected':'')+'>'+esc(x.name.split(" ")[0])+'</option>';
-      }).join("");
-      var sOpts = STATUSES.map(function(x){
-        return '<option value="'+x.id+'"'+(x.id===s?' selected':'')+'>'+x.label+'</option>';
-      }).join("");
-      var idx = (page-1)*per + i + 1;
-      return '<tr class="'+(isWin(s)?'winrow':'')+'">'+
-        '<td style="color:var(--soft);font-size:11px">'+idx+'</td>'+
-        '<td class="bizid"><span class="idwrap">'+esc(b.id)+
-          '<button class="copy" data-copy="'+esc(b.id)+'" title="Copy business ID">'+
-          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>'+
-          '</button></span></td>'+
-        '<td class="biz"><span class="bname" title="'+esc(b.name)+'">'+esc(b.name)+'</span></td>'+
-        '<td><a class="phone" href="tel:'+esc(b.phone)+'">'+esc(fmtPhone(b.phone))+'</a> '+
-          '<button class="copy" data-copy="'+esc(b.phone)+'" title="Copy number">'+
-          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>'+
-          '</button></td>'+
-        '<td class="num mx'+(b.orders===null?' zero':'')+'">'+fmtCount(b.orders)+'</td>'+
-        '<td class="num avg mx">'+fmtAvg(avgPerDay(b))+'</td>'+
-        '<td><span class="pill" style="color:'+(hiveChurn(b)?"#B91C1C":"#15803d")+';background:'+(hiveChurn(b)?"#FEF2F2":"#F0FDF4")+'">'+(hiveChurn(b)?"Churn":"Active")+'</span></td>'+
-        '<td><select class="kam" data-kam="'+esc(b.id)+'" style="color:'+kObj.color+';border-color:'+kObj.color+'33">'+kOpts+'</select></td>'+
-        '<td><select class="st" data-st="'+esc(b.id)+'" style="color:'+st.fg+';background-color:'+st.bg+'">'+sOpts+'</select></td>'+
-        '<td><input class="note" data-note="'+esc(b.id)+'" value="'+esc(r?r.n:"")+'" placeholder="Add a note…"></td>'+
-        '<td class="when">'+relTime(r?r.t:0)+'</td>'+
-      '</tr>';
-    }).join("") : '<tr><td colspan="11"><div class="empty">No businesses match these filters.</div></td></tr>';
-
-    var from = rows.length ? (page-1)*per+1 : 0;
-    var to = Math.min(page*per, rows.length);
-    el("pgInfo").textContent = rows.length ? ("Showing "+from+"–"+to+" of "+rows.length) : "No results";
+    var from = TOTAL_MATCHED ? (page-1)*per + 1 : 0;
+    el("tbody").innerHTML = ROWS.length
+      ? ROWS.map(function(b,i){ return rowHtml(b, from + i); }).join("")
+      : '<tr><td colspan="11"><div class="empty">' +
+        (DB.ready() ? "No businesses match these filters." : "Connect your Supabase project to load the list.") +
+        '</div></td></tr>';
+    el("pgInfo").textContent = TOTAL_MATCHED ? ("Showing "+from+"–"+Math.min(page*per,TOTAL_MATCHED)+" of "+TOTAL_MATCHED) : "No results";
     el("pgNum").textContent = page+" / "+pages;
     el("pgPrev").disabled = page <= 1;
     el("pgNext").disabled = page >= pages;
-    el("tblCount").textContent = rows.length+" of "+BIZ.length+" businesses";
+    el("tblCount").textContent = TOTAL_MATCHED.toLocaleString("en-US")+" of "+
+      totalCount().toLocaleString("en-US")+" businesses";
   }
 
   /* ============ order projection ============
      Every merchant is projected forward at its own historical monthly rate.
      Merchants are then split by what the KAM has recorded: won back/activated
      count as achieved, not interested/wrong number as lost, everything else as
-     open and recoverable at the chosen win-back rate. */
+     open and recoverable at the chosen win-back rate.
+     The sums come from v_dashboard, so the browser never walks 30,507 rows. */
   var PROJ = { days:30, rate:25, est:false };
 
-  function projRate(b){
-    if(b.orders === null || b.perMonth === null) return null;
-    if(b.est && !PROJ.est) return null;
-    return b.perMonth;
-  }
-  function projBucket(st){
-    if(WINS[st]) return "won";
-    if(st === "not_interested" || st === "wrong_number") return "lost";
-    return "open";
-  }
   function fmtOrders(v){
     if(!v) return "0";
     if(v < 10) return fmtAvg(v);
@@ -991,20 +855,14 @@
 
   function renderProj(){
     var months = PROJ.days / 30.44;
-    var t = { total:0, won:0, open:0, lost:0, n:0, est:0, excluded:0 };
-    BIZ.forEach(function(b){
-      var m = projRate(b);
-      if(m === null){ if(b.orders !== null) t.excluded++; return; }
-      var v = m * months;
-      t.n++;
-      if(b.est) t.est++;
-      t.total += v;
-      t[projBucket(statusOf(b.id))] += v;
-    });
+    var src = (DASH && DASH.projection) || {};
+    var pick = function(k){ return PROJ.est ? (src[k] || 0) : (src[k+"_measured"] || 0); };
+    var t = { total:pick("total")*months, won:pick("won")*months, open:pick("open")*months,
+              lost:pick("lost")*months, n:pick("n"),
+              est:PROJ.est ? (src.est || 0) : 0, excluded:src.excluded || 0 };
 
     var rec  = t.open * PROJ.rate / 100;   // open merchants won back
     var risk = t.open - rec;               // open merchants still lost
-    var ach  = t.won + rec;
     var lost = t.lost + risk;
 
     var setV = function(id, v){ var e = el(id); if(e) e.textContent = fmtOrders(v); };
@@ -1013,10 +871,10 @@
     setV("pjRec", rec);        // what the chosen win-back rate would recover
     setV("pjLost", t.lost);
 
-    var pct = function(v){ return t.total > 0 ? (v / t.total * 100) : 0; };
+    var pctOf = function(v){ return t.total > 0 ? (v / t.total * 100) : 0; };
     var seg = function(id, v){
       var e = el(id);
-      if(e) e.style.width = pct(v).toFixed(2) + "%";
+      if(e) e.style.width = pctOf(v).toFixed(2) + "%";
     };
     seg("segWon", t.won); seg("segRec", rec);
     seg("segOpen", risk); seg("segLost", t.lost);
@@ -1034,17 +892,15 @@
         '<span><i style="background:#0E9F6E"></i>Won back <b>' + fmtOrders(t.won) + '</b></span>' +
         '<span><i style="background:#38BDF8"></i>Recovered <b>' + fmtOrders(rec) + '</b></span>' +
         '<span><i style="background:#F59E0B"></i>Still at risk <b>' + fmtOrders(risk) + '</b></span>' +
-        '<span><i style="background:#DC2626"></i>Lost <b>' + fmtOrders(t.lost) + '</b></span>';
+        '<span><i style="background:#DC2626"></i>Lost <b>' + fmtOrders(lost) + '</b></span>';
     }
 
     var hint = el("projHint");
-    if(hint) hint.textContent = "next " + PROJ.days + " days · " + t.n + " of " + BIZ.length + " merchants";
+    if(hint) hint.textContent = "next " + PROJ.days + " days · " + t.n + " of " + totalCount() + " merchants";
 
-    // The estimate toggle only means something while some merchant lacks dates.
-    // Leaving it visible with nothing to add is a dead control.
     var box = el("projEst");
     if(box){
-      var anyEstimated = BIZ.some(function(b){ return b.est; });
+      var anyEstimated = (src.est || 0) > 0;
       var wrap = box.closest("label");
       if(wrap) wrap.style.display = anyEstimated ? "" : "none";
     }
@@ -1052,7 +908,7 @@
     var foot = el("projFoot");
     if(foot){
       var f = "Each merchant is projected at its own historical rate — lifetime orders ÷ months it has been ordering — " +
-              "times " + PROJ.days + " days. " + t.n + " of " + BIZ.length + " merchants qualify" +
+              "times " + PROJ.days + " days. " + t.n + " of " + totalCount() + " merchants qualify" +
               (t.est ? " (" + t.est + " of them estimated)" : "") + ".";
       if(t.excluded > 0){
         f += " " + t.excluded + " " + (t.excluded === 1 ? "merchant has" : "merchants have") +
@@ -1086,52 +942,103 @@
     if(e) e.addEventListener("change", function(){ PROJ.est = e.checked; renderProj(); });
   }
 
-  function render(){
+  /* ============ render ============ */
+  function renderPanels(){
+    renderKPIs(); renderKAM(); renderCharts(); renderProj();
     var tbl = el("tbl");
     var known = metricsKnown();
     if(tbl) tbl.classList.toggle("hide-mx", known === 0);
     var note = el("mxNote");
     if(note){
-      var partial = known > 0 && known < BIZ.length;
+      var total = totalCount();
+      var partial = known > 0 && known < total;
       note.classList.toggle("on", partial);
-      note.textContent = partial ? "Hive orders " + known + "/" + BIZ.length + " merchants" : "";
+      note.textContent = partial ? "Hive orders " + known.toLocaleString("en-US") + "/" + total.toLocaleString("en-US") + " merchants" : "";
       note.title = partial
-        ? "Order totals are loaded for " + known + " of " + BIZ.length +
+        ? "Order totals are loaded for " + known.toLocaleString("en-US") + " of " + total.toLocaleString("en-US") +
           " merchants. The rest could not be counted yet and show a dash — they are not zero."
         : "";
     }
-    renderKPIs(); renderKAM(); renderCharts(); renderProj(); renderTable();
+    var sub = el("subCount");
+    if(sub) sub.textContent = total ? total.toLocaleString("en-US") : "—";
+  }
+  function render(){ renderPanels(); renderTable(); }
+
+  /* ============ loading ============ */
+  function loadPage(){
+    if(!DB.ready()){ renderTable(); return Promise.resolve(false); }
+    var mine = ++seq;
+    if(pageCtl) pageCtl.abort();
+    pageCtl = new AbortController();
+    return DB.list({ page:page, per:PER_PAGE, filters:filters,
+                     sortKey:filters.sortKey, sortDir:filters.sortDir,
+                     signal:pageCtl.signal })
+      .then(function(res){
+        if(mine !== seq) return false;          // a newer request won
+        ROWS = res.rows; TOTAL_MATCHED = res.total;
+        ROW_BY_ID = {}; ROWS.forEach(function(b){ ROW_BY_ID[b.id] = b; });
+        renderTable();
+        return true;
+      })
+      .catch(function(err){
+        if(mine !== seq || (err && err.name === "AbortError")) return false;
+        setDbStatus("error", err.message || String(err));
+        el("tblCount").textContent = "Could not load";
+        return false;
+      });
+  }
+
+  function refreshAll(){
+    if(!DB.ready()){ renderConnectState(); return Promise.resolve(false); }
+    lastRefresh = Date.now();
+    return Promise.all([DB.stats(), loadPage()])
+      .then(function(r){
+        if(r[0]) DASH = r[0];
+        setDbStatus("ok", "");
+        // Render both: the table drew before the totals arrived, so it still
+        // shows "20 of 0 businesses" until the panels' data is in hand.
+        render();
+        return true;
+      })
+      .catch(function(err){
+        setDbStatus("error", err.message || String(err));
+        toast("Database: " + (err.message || err));
+        return false;
+      });
   }
 
   /* ============ mutations ============ */
-  function setStatus(id, s, silent){
-    var r = rec(id);
-    var from = r.s;
-    r.s = s; r.t = Date.now();
-    if(from !== s){
-      state.log.push({ t:new Date().toISOString(), id:id, kam:state.actingAs, from:from, to:s });
-      if(state.log.length > 4000) state.log = state.log.slice(-4000);
+  function patchRow(id, patch, okMsg){
+    var b = ROW_BY_ID[id];
+    var prev = b ? { kam:b.kam, outcome:b.outcome, notes:b.notes, updated:b.updated } : null;
+    if(b){
+      Object.keys(patch).forEach(function(k){ b[k] = patch[k]; });
+      b.updated = Date.now();
+      renderTable();
     }
-    save();
-    queuePush(id);
-    render();
-    if(!silent) toast("Saved · " + BYID[id].name + " → " + S_BY_ID[s].label);
+    DB.update(id, patch).then(function(saved){
+      if(saved && b){ b.updated = saved.updated; }
+      if(okMsg) toast(okMsg);
+      // Re-read the aggregates so every panel reflects the write immediately.
+      DB.stats().then(function(d){ DASH = d; if(!document.activeElement ||
+          !document.activeElement.closest("tbody")) renderPanels(); }).catch(function(){});
+      setDbStatus("ok", "");
+    }).catch(function(err){
+      if(b && prev){ Object.keys(prev).forEach(function(k){ b[k] = prev[k]; }); renderTable(); }
+      setDbStatus("error", err.message || String(err));
+      toast("Not saved — " + (err.message || "database error"));
+    });
+  }
+  function setStatus(id, s){
+    var name = ROW_BY_ID[id] ? ROW_BY_ID[id].name : id;
+    patchRow(id, { outcome:s }, "Saved · " + name + " → " + (S_BY_ID[s]||S_BY_ID.pending).label);
   }
   function setKam(id, k){
-    state.assignments[id] = k;
-    var r = rec(id); r.t = Date.now();
-    save(); queuePush(id); render();
-    toast("Assigned to " + (KAMS.filter(function(x){return x.id===k;})[0]||{}).name);
+    patchRow(id, { kam:k }, "Assigned to " + kamName(k));
   }
   function setNote(id, n){
-    var r = rec(id);
-    r.n = n; r.t = Date.now();
-    save(); queuePush(id);
-    var row = document.querySelector('[data-note="'+id+'"]');
-    if(row){
-      var td = row.closest("td").nextElementSibling;
-      if(td) td.textContent = "just now";
-    }
+    clearTimeout(noteTimers[id]);
+    patchRow(id, { notes:n });
   }
 
   /* ============ wiring ============ */
@@ -1140,9 +1047,9 @@
     who.innerHTML = KAMS.map(function(k){
       return '<option value="'+k.id+'">'+esc(k.name)+'</option>';
     }).join("");
-    who.value = state.actingAs;
+    who.value = ui.actingAs;
     who.addEventListener("change", function(){
-      state.actingAs = who.value; save();
+      ui.actingAs = who.value; saveUi();
       toast("Acting as " + who.options[who.selectedIndex].text);
     });
 
@@ -1154,69 +1061,8 @@
       STATUSES.filter(function(s){ return s.id !== "pending"; }).map(function(s){
         return '<option value="'+s.id+'">'+esc(s.label)+'</option>';
       }).join("");
-  }
 
-  function wire(){
-    var q = el("q");
-
-    /* Sort headers. An inline onclick="toggleSort(...)" cannot work: the handler
-       runs in global scope and toggleSort lives inside this IIFE. */
-    Array.prototype.forEach.call(document.querySelectorAll("th[data-sort]"), function(th){
-      var key = th.getAttribute("data-sort");
-      th.addEventListener("click", function(){ toggleSort(key); });
-      th.addEventListener("keydown", function(e){
-        if(e.key === "Enter" || e.key === " "){ e.preventDefault(); toggleSort(key); }
-      });
-    });
-    q.addEventListener("input", function(){ filters.q = q.value; page = 1; renderTable(); });
-    el("fKam").addEventListener("change", function(e){ filters.kam = e.target.value; page=1; renderTable(); });
-    el("fStatus").addEventListener("change", function(e){ filters.status = e.target.value; page=1; renderTable(); });
-    el("fReason").addEventListener("change", function(e){ filters.reason = e.target.value; page=1; renderTable(); });
-    el("btnCopyList").addEventListener("click", copyList);
-    el("pgSize").addEventListener("change", function(){
-      PER_PAGE = parseInt(this.value, 10) || 0;
-      page = 1;
-      renderTable();
-    });
-    el("btnClearFilters").addEventListener("click", function(){
-      // keep sortKey/sortDir: replacing the object used to drop the sort
-      filters.q = ""; filters.kam = ""; filters.status = ""; filters.reason = "";
-      q.value=""; el("fKam").value=""; el("fStatus").value=""; el("fReason").value="";
-      page = 1; renderTable(); toast("Filters cleared");
-    });
-
-    el("pgPrev").addEventListener("click", function(){ if(page>1){ page--; renderTable(); } });
-    el("pgNext").addEventListener("click", function(){ page++; renderTable(); });
-
-    el("tbody").addEventListener("change", function(e){
-      var t = e.target;
-      if(t.dataset.st) setStatus(t.dataset.st, t.value);
-      else if(t.dataset.kam) setKam(t.dataset.kam, t.value);
-    });
-    el("tbody").addEventListener("blur", function(e){
-      if(e.target.dataset && e.target.dataset.note) setNote(e.target.dataset.note, e.target.value);
-    }, true);
-    // save notes as the user types (no re-render, so focus/keystrokes are safe)
-    el("tbody").addEventListener("input", function(e){
-      var t = e.target;
-      if(!t.dataset || !t.dataset.note) return;
-      var r = rec(t.dataset.note);
-      r.n = t.value; r.t = Date.now();
-      save(); queuePush(t.dataset.note);
-    });
-    el("tbody").addEventListener("click", function(e){
-      var btn = e.target.closest ? e.target.closest(".copy") : null;
-      if(!btn) return;
-      var v = btn.getAttribute("data-copy");
-      if(navigator.clipboard && navigator.clipboard.writeText){
-        navigator.clipboard.writeText(v).then(function(){ toast("Copied " + v); },
-          function(){ fallbackCopy(v); });
-      } else fallbackCopy(v);
-    });
-
-    el("btnExport").addEventListener("click", exportCSV);
-    el("btnBackup").addEventListener("click", exportBackup);
-    el("fileIn").addEventListener("change", importBackup);
+    el("fReason").value = filters.reason;
   }
 
   function fallbackCopy(v){
@@ -1226,6 +1072,38 @@
     try{ document.execCommand("copy"); toast("Copied " + v); }
     catch(e){ toast("Copy failed"); }
     document.body.removeChild(ta);
+  }
+
+  /* Copies ID, name and phone for whatever the filters currently show, so a
+     churn call list can be pasted straight into a sheet. */
+  function copyList(){
+    if(!DB.ready()){ toast("Connect a database first"); return; }
+    toast("Collecting rows…");
+    DB.fetchAll({ filters:filters, batch:1000,
+                  sortKey:filters.sortKey, sortDir:filters.sortDir }).then(function(res){
+      if(!res.rows.length){ toast("Nothing to copy — clear the filters first"); return; }
+      var text = res.rows.map(function(b){
+        var name = String(b.name).replace(/[\t\r\n]+/g, " ");
+        return b.id + "\t" + name + "\t" + b.phone;
+      }).join("\n");
+      copyText(text).then(function(){
+        toast("Copied " + res.rows.length + " rows · ID, name, phone");
+      }, function(){
+        toast("Copy blocked by the browser — use Export CSV instead");
+      });
+    }).catch(function(err){ toast("Could not read rows — " + (err.message||err)); });
+  }
+
+  function copyText(text){
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      return navigator.clipboard.writeText(text);
+    }
+    var ta = document.createElement("textarea");
+    ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
+    document.body.appendChild(ta); ta.select();
+    try{ document.execCommand("copy"); }catch(e){}
+    document.body.removeChild(ta);
+    return Promise.resolve();
   }
 
   /* ============ export / import ============ */
@@ -1243,393 +1121,289 @@
     return /[",\n]/.test(v) ? '"'+v.replace(/"/g,'""')+'"' : v;
   }
   function exportCSV(){
-    var rows = filtered();
-    var head = ["Business ID","Reason","Business Name","Phone","Lifetime Orders","Active Days","Avg Orders/Day","Assigned KAM","Outcome","Notes","Last Updated"];
-    var lines = [head.join(",")];
-    rows.forEach(function(b){
-      var s = statusOf(b.id), r = state.records[b.id] || {};
-      var kObj = KAMS.filter(function(x){ return x.id === kamOf(b.id); })[0] || KAMS[0];
-      lines.push([
-        b.id, b.reason, b.name, b.phone,
-        b.orders===null ? "" : b.orders,
-        b.days===null ? "" : b.days,
-        fmtAvg(avgPerDay(b)),
-        kObj.name,
-        S_BY_ID[s].label, r.n || "",
-        r.t ? new Date(r.t).toISOString().slice(0,16).replace("T"," ") : ""
-      ].map(csvCell).join(","));
-    });
-    download("churn-win-tracker-"+todayKey()+".csv", "\uFEFF"+lines.join("\r\n"), "text/csv;charset=utf-8");
-    toast("Exported " + rows.length + " rows");
+    if(!DB.ready()){ toast("Connect a database first"); return; }
+    toast("Collecting rows…");
+    DB.fetchAll({ filters:filters, batch:1000,
+                  sortKey:filters.sortKey, sortDir:filters.sortDir }).then(function(res){
+      var head = ["Business ID","Reason","Business Name","Phone","Lifetime Orders","Active Days","Avg Orders/Day","Assigned KAM","Outcome","Notes","Last Updated"];
+      var lines = [head.join(",")];
+      res.rows.forEach(function(b){
+        var s = statusOf(b);
+        var kObj = KAMS.filter(function(x){ return x.id === kamOf(b); })[0] || KAMS[0];
+        lines.push([
+          b.id, b.reason, b.name, b.phone,
+          b.orders===null ? "" : b.orders,
+          b.days===null ? "" : b.days,
+          fmtAvg(avgPerDay(b)),
+          kObj.name,
+          (S_BY_ID[s]||S_BY_ID.pending).label, b.notes || "",
+          b.updated ? new Date(b.updated).toISOString().slice(0,16).replace("T"," ") : ""
+        ].map(csvCell).join(","));
+      });
+      download("churn-win-tracker-"+todayKey()+".csv", "\uFEFF"+lines.join("\r\n"), "text/csv;charset=utf-8");
+      toast("Exported " + res.rows.length + " rows");
+    }).catch(function(err){ toast("Export failed — " + (err.message||err)); });
   }
+
   function exportBackup(){
-    var payload = { app:"churn-win-tracker", v:1, exportedAt:new Date().toISOString(),
-                    actingAs:state.actingAs, assignments:state.assignments,
-                    records:state.records, log:state.log.slice(-4000) };
-    download("churn-win-backup-"+todayKey()+".json", JSON.stringify(payload), "application/json");
-    toast("Backup downloaded");
+    if(!DB.ready()){ toast("Connect a database first"); return; }
+    toast("Collecting rows…");
+    DB.fetchAll({ filters:{}, batch:1000 }).then(function(res){
+      var payload = { app:"churn-win-tracker", v:2, exportedAt:new Date().toISOString(),
+                      actingAs:ui.actingAs,
+                      rows:res.rows.map(function(b){
+                        return { id:b.id, kam:b.kam, outcome:b.outcome, notes:b.notes, updated:b.updated };
+                      }) };
+      download("churn-win-backup-"+todayKey()+".json", JSON.stringify(payload), "application/json");
+      toast("Backup downloaded · " + res.rows.length + " rows");
+    }).catch(function(err){ toast("Backup failed — " + (err.message||err)); });
   }
+
+  /* Restoring writes the file's kam/outcome/notes back over the database. It is
+     deliberately explicit about that: this is a restore, not a merge. */
   function importBackup(e){
     var f = e.target.files && e.target.files[0];
     if(!f) return;
     var reader = new FileReader();
     reader.onload = function(){
+      var rows;
       try{
         var d = JSON.parse(reader.result);
-        if(!d || !d.records) throw new Error("Not a tracker backup");
-        var merged = 0, kept = 0;
-        Object.keys(d.records).forEach(function(id){
-          if(!BYID[id]) return;
-          var incoming = d.records[id] || {};
-          var cur = state.records[id];
-          var inT = incoming.t || 0, curT = (cur && cur.t) || 0;
-          if(!cur || inT > curT){
-            state.records[id] = { s:incoming.s || "pending", n:incoming.n || "", t:inT };
-            merged++;
-          } else kept++;
-        });
-        if(d.assignments){
-          Object.keys(d.assignments).forEach(function(id){
-            if(BYID[id]) state.assignments[id] = d.assignments[id];
-          });
+        rows = d.rows || (d.records ? Object.keys(d.records).map(function(id){
+          var r = d.records[id] || {};
+          return { id:id, kam:(d.assignments||{})[id], outcome:r.s, notes:r.n };
+        }) : null);
+        if(!Array.isArray(rows)) throw new Error("not a tracker backup");
+      }catch(err){ toast("Could not read that file"); e.target.value=""; return; }
+      if(!DB.ready()){ toast("Connect a database first"); return; }
+      if(rows.length > 50 && !confirm("Restore " + rows.length + " rows over the database?")){ e.target.value=""; return; }
+      toast("Restoring " + rows.length + " rows…");
+      var done = 0, failed = 0, i = 0;
+      var next = function(){
+        if(i >= rows.length){
+          toast("Restored " + done + " rows" + (failed ? " · " + failed + " failed" : ""));
+          refreshAll();
+          e.target.value = "";
+          return;
         }
-        ensureAssignments(state);
-        if(Array.isArray(d.log)) state.log = state.log.concat(d.log).slice(-4000);
-        save(); render();
-        Object.keys(state.assignments).forEach(function(id){ queuePush(id); });
-        toast("Restored — " + merged + " updated, " + kept + " kept (newer locally)");
-      }catch(err){
-        toast("Could not read that file");
-      }
-      e.target.value = "";
+        var r = rows[i++];
+        var patch = {};
+        if(r.kam) patch.kam = r.kam;
+        if(r.outcome) patch.outcome = r.outcome;
+        if(r.notes !== undefined) patch.notes = r.notes;
+        DB.update(String(r.id), patch).then(function(){ done++; }, function(){ failed++; }).then(next);
+      };
+      for(var k = 0; k < 6; k++) next();   // six at a time: fast without hammering
     };
     reader.readAsText(f);
   }
 
   /* ============================================================
-     Google Sheet sync
-     Dashboard <-> Apps Script web app <-> "Churn & Inactive merchant List"
-     Columns: A Business ID | B Reason | C Business Name | D Phone
-              E Assigned KAM  | F Outcome | G Notes | H Updated
+     Supabase connection
      ============================================================ */
-  var SYNC_KEY = "cwt.sync.url";
-  var sync = { url:"", status:"off", lastOk:0, detail:"", queue:{}, busy:false,
-               timer:null, retry:null, poll:null };
+  var dbStatus = { state:"off", detail:"", lastOk:0 };
+  var lastRefresh = 0;
 
-  var LABEL_TO_ID = {};
-  STATUSES.forEach(function(s){ LABEL_TO_ID[s.label.toLowerCase()] = s.id; LABEL_TO_ID[s.id] = s.id; });
-  var NAME_TO_KAM = {};
-  KAMS.forEach(function(k){
-    NAME_TO_KAM[k.name.toLowerCase()] = k.id;
-    NAME_TO_KAM[k.id] = k.id;
-    NAME_TO_KAM[k.name.split(" ")[0].toLowerCase()] = k.id;
-  });
-  function kamName(id){
-    var k = KAMS.filter(function(x){ return x.id === id; })[0];
-    return k ? k.name : KAMS[0].name;
+  function setDbStatus(state, detail){
+    dbStatus.state = state;
+    dbStatus.detail = detail || "";
+    if(state === "ok"){ dbStatus.lastOk = Date.now(); lastRefresh = Date.now(); }
+    renderDbUI();
   }
-  function statusLabel(id){ return (S_BY_ID[id] || S_BY_ID.pending).label; }
 
-  try{ sync.url = localStorage.getItem(SYNC_KEY) || ""; }catch(e){ sync.url = ""; }
-
-  function syncActive(){ return !!sync.url; }
-
-  function renderSyncUI(){
+  function renderDbUI(){
     var pill = el("syncPill"), txt = el("syncPillTxt");
     if(!pill) return;
-    var st = sync.status, label;
-    if(!syncActive())          { st = "off";     label = "Sheet sync off"; }
-    else if(st === "syncing")  { label = "Saving…"; }
-    else if(st === "error")    { label = "Sync error"; }
-    else if(st === "queued")   { label = "Pending…"; }
-    else if(st === "ok")       { label = "Synced"; }
-    else                       { label = "Sheet sync on"; }
-    pill.setAttribute("data-st", st);
+    var label = { off:"Database off", busy:"Connecting…", ok:"Live", error:"Database error" }[dbStatus.state] || "Database off";
+    pill.setAttribute("data-st", dbStatus.state === "ok" ? "ok" : (dbStatus.state === "busy" ? "syncing" : (dbStatus.state === "error" ? "error" : "off")));
     txt.textContent = label;
-    pill.title = syncActive()
-      ? ("Sheet sync " + (st==="error" ? "error: " + sync.detail : st) +
-         (sync.lastOk ? " · last " + relTime(sync.lastOk) : ""))
-      : "Click to connect a Google Sheet";
+    pill.title = dbStatus.state === "ok"
+      ? "Live on Supabase · last refreshed " + relTime(lastRefresh)
+      : (dbStatus.state === "error" ? "Database error: " + dbStatus.detail : "Click to connect a Supabase project");
 
     var box = el("syncStat");
     if(box){
-      if(!syncActive()){ box.className = "syncstat"; box.textContent = "Not connected — paste the web-app URL above."; }
-      else if(st === "error"){ box.className = "syncstat err"; box.textContent = "Sync error: " + (sync.detail || "unknown"); }
-      else {
-        var q = Object.keys(sync.queue).length;
+      if(!DB.ready()){
+        box.className = "syncstat";
+        box.textContent = "Not connected — paste your project URL and anon key above.";
+      } else if(dbStatus.state === "error"){
+        box.className = "syncstat err";
+        box.textContent = "Error: " + dbStatus.detail;
+      } else {
         box.className = "syncstat ok";
-        box.textContent = "Connected · " + (sync.lastOk ? "last synced " + relTime(sync.lastOk) : "waiting for first sync") +
-          (q ? " · " + q + " change" + (q>1?"s":"") + " queued" : "");
+        box.textContent = "Connected · " + totalCount().toLocaleString("en-US") + " businesses · " +
+          (lastRefresh ? "refreshed " + relTime(lastRefresh) : "connecting…");
       }
     }
   }
 
-  /* --- queueing: every local edit marks that merchant dirty --- */
-  function queuePush(id){
-    if(!syncActive()) return;
-    var r = state.records[id] || { s:"pending", n:"", t:0 };
-    sync.queue[id] = { s:r.s, k:kamOf(id), n:r.n || "", t:r.t || Date.now() };
-    if(sync.status !== "error") sync.status = "queued";
-    renderSyncUI();
-    clearTimeout(sync.timer);
-    sync.timer = setTimeout(flush, 800);
-  }
-
-  // Lifetime orders + average order (orders per active day), as the sheet wants them.
-  function orderFields(id){
-    var b = BYID[id];
-    if(!b) return { orders:"", avg:"" };
-    var a = avgPerDay(b);
-    return {
-      orders: b.orders === null || b.orders === undefined ? "" : b.orders,
-      avg: a === null ? "" : Math.round(a * 100) / 100
-    };
-  }
-
-  function payloadFor(ids){
-    return { updates: ids.map(function(id){
-      var q = sync.queue[id];
-      var o = orderFields(id);
-      return { id:String(id), kam:kamName(q.k), outcome:statusLabel(q.s),
-               notes:q.n, updated:new Date(q.t).toISOString(),
-               orders:o.orders, avg:o.avg };
-    }) };
-  }
-
-  // Apps Script can't answer CORS preflight, so we POST as text/plain.
-  function postSheet(body){
-    return fetch(sync.url, {
-      method:"POST", redirect:"follow",
-      headers:{ "Content-Type":"text/plain;charset=utf-8" },
-      body: JSON.stringify(body)
-    }).then(function(r){
-      if(!r.ok) throw new Error("HTTP " + r.status);
-      return r.text().then(function(t){
-        try{ return JSON.parse(t); }catch(e){ return { ok:true }; }
-      });
-    });
-  }
-
-  function flush(){
-    if(!syncActive() || sync.busy) return;
-    var ids = Object.keys(sync.queue);
-    if(!ids.length) return;
-    sync.busy = true; sync.status = "syncing"; renderSyncUI();
-    postSheet(payloadFor(ids)).then(function(res){
-      ids.forEach(function(id){ delete sync.queue[id]; });
-      sync.busy = false; sync.lastOk = Date.now(); sync.detail = "";
-      sync.status = Object.keys(sync.queue).length ? "queued" : "ok";
-      renderSyncUI();
-      if(sync.status === "queued"){ clearTimeout(sync.timer); sync.timer = setTimeout(flush, 400); }
-    }).catch(function(err){
-      sync.busy = false;
-      sync.status = "error";
-      sync.detail = (err && err.message) || String(err);
-      renderSyncUI();
-      clearTimeout(sync.retry);
-      sync.retry = setTimeout(flush, 6000);   // keep retrying; changes stay queued
-    });
-  }
-
-  /* --- pull: the sheet is shared truth, newest timestamp wins --- */
-  function pullSheet(silent){
-    if(!syncActive()) return Promise.resolve(0);
-    sync.status = sync.status === "queued" ? "queued" : "syncing";
-    renderSyncUI();
-    var url = sync.url + (sync.url.indexOf("?") > -1 ? "&" : "?") + "_t=" + Date.now();
-    return fetch(url, { method:"GET", redirect:"follow" })
-      .then(function(r){
-        if(!r.ok) throw new Error("HTTP " + r.status);
-        return r.json();
-      })
-      .then(function(d){
-        var rows = (d && d.rows) || [], applied = 0;
-        rows.forEach(function(rw){
-          if(!rw || rw.length < 5) return;
-          var id = String(rw[0] == null ? "" : rw[0]).trim();
-          if(!BYID[id]) return;
-
-          var kamId  = NAME_TO_KAM[String(rw[1]||"").toLowerCase().trim()];
-          var stId   = LABEL_TO_ID[String(rw[2]||"").toLowerCase().trim()];
-          var notes  = rw[3] == null ? "" : String(rw[3]);
-          var t      = Date.parse(rw[4]) || 0;
-
-          if(kamId) state.assignments[id] = kamId;
-
-          var cur = state.records[id] || { s:"pending", n:"", t:0 };
-          if(t > (cur.t || 0)){
-            state.records[id] = { s: stId || cur.s || "pending", n: notes, t: t };
-            applied++;
-          }
-        });
-        ensureAssignments(state);
-        sync.lastOk = Date.now();
-        sync.detail = "";
-        if(sync.status !== "queued") sync.status = "ok";
-        renderSyncUI(); save(); render();
-        if(!silent) toast(applied ? ("Pulled " + applied + " update" + (applied>1?"s":"") + " from the sheet")
-                                  : "Sheet already up to date");
-        return applied;
-      })
-      .catch(function(err){
-        sync.status = "error";
-        sync.detail = (err && err.message) || String(err);
-        renderSyncUI();
-        if(!silent) toast("Could not read the sheet: " + sync.detail);
-        return 0;
-      });
-  }
-
-  /* --- push every locally-known record (first-time seeding) --- */
-  function pushAllLocal(){
-    if(!syncActive()){ toast("Connect a Sheet URL first"); return; }
-    var ids = Object.keys(state.records).filter(function(id){
-      return BYID[id] && state.records[id] && state.records[id].t;
-    });
-    if(!ids.length){ toast("Nothing to push yet"); return; }
-    var chunks = [], size = 100;
-    for(var i=0;i<ids.length;i+=size) chunks.push(ids.slice(i, i+size));
-    Object.keys(sync.queue).forEach(function(id){ delete sync.queue[id]; });
-    sync.status = "syncing"; renderSyncUI();
-    var done = 0, failed = 0;
-    var chain = Promise.resolve();
-    chunks.forEach(function(chunk){
-      chain = chain.then(function(){
-        var body = { updates: chunk.map(function(id){
-          var r = state.records[id], o = orderFields(id);
-          return { id:String(id), kam:kamName(kamOf(id)), outcome:statusLabel(r.s),
-                   notes:r.n || "", updated:new Date(r.t).toISOString(),
-                   orders:o.orders, avg:o.avg };
-        })};
-        return postSheet(body).then(function(){ done += chunk.length; })
-          .catch(function(){ failed += chunk.length; });
-      });
-    });
-    chain.then(function(){
-      sync.status = failed ? "error" : "ok";
-      sync.detail = failed ? (failed + " rows failed") : "";
-      if(!failed) sync.lastOk = Date.now();
-      renderSyncUI();
-      toast(failed ? ("Pushed " + done + ", failed " + failed)
-                   : ("Pushed " + done + " rows to the sheet"));
-    });
-  }
-
-  /* Writes only I and J for every merchant. The Apps Script skips columns an
-     update does not carry, so this cannot blank a KAM's outcome or notes. */
-  function pushOrders(){
-    if(!syncActive()){ toast("Connect a Sheet URL first"); return; }
-    var ids = BIZ.filter(function(b){ return b.orders !== null; })
-                 .map(function(b){ return b.id; });
-    if(!ids.length){ toast("No order data to push"); return; }
-
-    var chunks = [], size = 100;
-    for(var i = 0; i < ids.length; i += size) chunks.push(ids.slice(i, i + size));
-
-    sync.status = "syncing"; renderSyncUI();
-    var done = 0, failed = 0;
-    var chain = Promise.resolve();
-    chunks.forEach(function(chunk){
-      chain = chain.then(function(){
-        var body = { updates: chunk.map(function(id){
-          var o = orderFields(id);
-          return { id:String(id), orders:o.orders, avg:o.avg };
-        })};
-        return postSheet(body)
-          .then(function(res){
-            if(res && res.ok === false) throw new Error(res.error || "rejected");
-            done += chunk.length;
-          })
-          .catch(function(){ failed += chunk.length; });
-      });
-    });
-    chain.then(function(){
-      sync.status = failed ? "error" : "ok";
-      sync.detail = failed ? (failed + " rows failed") : "";
-      if(!failed) sync.lastOk = Date.now();
-      renderSyncUI();
-      toast(failed ? ("Wrote " + done + ", failed " + failed)
-                   : ("Wrote orders for " + done + " merchants to the sheet"));
-    });
-  }
-
-  function saveSyncUrl(u){
-    sync.url = (u || "").trim();
-    try{
-      if(sync.url) localStorage.setItem(SYNC_KEY, sync.url);
-      else localStorage.removeItem(SYNC_KEY);
-    }catch(e){}
-    sync.status = sync.url ? "ok" : "off";
-    sync.detail = "";
-    renderSyncUI();
-  }
-
-  function startPolling(){
-    clearInterval(sync.poll);
-    sync.poll = setInterval(function(){
-      if(document.visibilityState === "visible" && syncActive() && !sync.busy) pullSheet(true);
-    }, 45000);
-  }
-
-  function wireSync(){
-    var modal = el("syncModal");
-    function openModal(){
-      el("syncUrl").value = sync.url;
-      renderSyncUI();
-      modal.classList.add("open");
-      setTimeout(function(){ el("syncUrl").focus(); }, 40);
+  function renderConnectState(){
+    renderTable();
+    renderPanels();
+    setDbStatus("off", "");
+    if(!sessionStorage.getItem("cwt.welcomed")){
+      sessionStorage.setItem("cwt.welcomed", "1");
+      openDbModal();
     }
-    function closeModal(){ modal.classList.remove("open"); }
+  }
 
-    el("syncPill").addEventListener("click", openModal);
-    el("syncClose").addEventListener("click", closeModal);
-    modal.addEventListener("click", function(e){ if(e.target === modal) closeModal(); });
+  function openDbModal(){
+    var m = el("syncModal");
+    if(!m) return;
+    var c = DB.config();
+    el("dbUrl").value = c.url || "";
+    el("dbKey").value = c.key || "";
+    renderDbUI();
+    m.classList.add("open");
+    setTimeout(function(){ el("dbUrl").focus(); }, 40);
+  }
+  function closeDbModal(){ el("syncModal").classList.remove("open"); }
+
+  function connect(url, key){
+    DB.configure(url, key);
+    if(!DB.ready()){ setDbStatus("off", ""); toast("Saved — no URL/key, staying offline"); return; }
+    setDbStatus("busy", "");
+    toast("Checking the connection…");
+    DB.ping().then(function(){
+      return refreshAll();
+    }).then(function(){
+      closeDbModal();
+      toast("Connected · " + totalCount().toLocaleString("en-US") + " businesses");
+    }).catch(function(err){
+      setDbStatus("error", err.message || String(err));
+      toast("Connection failed — " + (err.message || err));
+    });
+  }
+
+  function wireDB(){
+    var modal = el("syncModal");
+    if(!modal) return;
+
+    el("syncPill").addEventListener("click", openDbModal);
+    el("syncClose").addEventListener("click", closeDbModal);
+    modal.addEventListener("click", function(e){ if(e.target === modal) closeDbModal(); });
     document.addEventListener("keydown", function(e){
-      if(e.key === "Escape" && modal.classList.contains("open")) closeModal();
+      if(e.key === "Escape" && modal.classList.contains("open")) closeDbModal();
     });
 
     el("syncSave").addEventListener("click", function(){
-      var u = el("syncUrl").value.trim();
-      if(u && !/^https:\/\/script\.google\.com\/macros\/s\/[^/]+\/exec/.test(u)){
-        toast("That doesn't look like an Apps Script /exec URL");
-      }
-      saveSyncUrl(u);
-      if(sync.url){ toast("Saved — checking the connection…"); pullSheet(false); }
-      else toast("Sheet sync disconnected");
+      var url = el("dbUrl").value.trim();
+      var key = el("dbKey").value.trim();
+      if(!url || !/^https?:\/\//.test(url)){ toast("Paste the full project URL (https://…supabase.co)"); return; }
+      if(!key){ toast("Paste the anon public key"); return; }
+      connect(url, key);
     });
 
     el("syncNow").addEventListener("click", function(){
-      if(!syncActive()){ toast("Connect a Sheet URL first"); return; }
-      flush(); pullSheet(false);
+      if(!DB.ready()){ toast("Connect a project first"); return; }
+      setDbStatus("busy", "");
+      refreshAll().then(function(ok){ if(ok) toast("Refreshed"); });
     });
-
-    el("syncPushAll").addEventListener("click", pushAllLocal);
-    el("syncPushOrders").addEventListener("click", pushOrders);
 
     el("syncDisconnect").addEventListener("click", function(){
-      saveSyncUrl("");
-      el("syncUrl").value = "";
-      toast("Disconnected — nothing more will be written to the sheet");
+      DB.configure("", "");
+      ROWS = []; TOTAL_MATCHED = 0; DASH = null;
+      el("dbKey").value = "";
+      setDbStatus("off", "");
+      renderConnectState();
+      toast("Disconnected — nothing more will be read or written");
     });
 
+    /* Live means live: pick up the other KAM's changes without a reload, but
+       never while a note field has focus (that would fight the typist). */
     document.addEventListener("visibilitychange", function(){
-      if(document.visibilityState === "visible" && syncActive() && !sync.busy) pullSheet(true);
+      if(document.visibilityState === "visible" && DB.ready() && !editing()) refreshAll();
     });
-    window.addEventListener("online", function(){
-      if(syncActive() && Object.keys(sync.queue).length) flush();
+    window.addEventListener("focus", function(){
+      if(DB.ready() && !editing()) refreshAll();
     });
-    startPolling();
+    clearInterval(pollTimer);
+    pollTimer = setInterval(function(){
+      if(document.visibilityState === "visible" && DB.ready() && !editing()) refreshAll();
+    }, 20000);
+  }
+
+  function editing(){
+    var a = document.activeElement;
+    return !!(a && a.closest && a.closest("tbody"));
+  }
+
+  function wire(){
+    var q = el("q");
+    var searchTimer = null;
+
+    /* Sort headers. An inline onclick="toggleSort(...)" cannot work: the handler
+       runs in global scope and toggleSort lives inside this IIFE. */
+    Array.prototype.forEach.call(document.querySelectorAll("th[data-sort]"), function(th){
+      var key = th.getAttribute("data-sort");
+      th.addEventListener("click", function(){ toggleSort(key); });
+      th.addEventListener("keydown", function(e){
+        if(e.key === "Enter" || e.key === " "){ e.preventDefault(); toggleSort(key); }
+      });
+    });
+
+    // Typing is debounced: one query per pause, not one per keystroke.
+    q.addEventListener("input", function(){
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(function(){ filters.q = q.value; page = 1; loadPage(); }, 250);
+    });
+    el("fKam").addEventListener("change", function(e){ filters.kam = e.target.value; page=1; loadPage(); });
+    el("fStatus").addEventListener("change", function(e){ filters.status = e.target.value; page=1; loadPage(); });
+    el("fReason").addEventListener("change", function(e){ filters.reason = e.target.value; page=1; loadPage(); });
+    el("btnCopyList").addEventListener("click", copyList);
+    el("pgSize").addEventListener("change", function(){
+      var n = parseInt(this.value, 10) || 0;
+      if(n === 0){ n = 1000; toast("Showing the first 1,000 — use Export CSV for everything"); }
+      PER_PAGE = n; page = 1; loadPage();
+    });
+    el("btnClearFilters").addEventListener("click", function(){
+      filters.q = ""; filters.kam = ""; filters.status = ""; filters.reason = "";
+      q.value=""; el("fKam").value=""; el("fStatus").value=""; el("fReason").value="";
+      page = 1; loadPage(); toast("Filters cleared");
+    });
+    el("pgPrev").addEventListener("click", function(){ if(page>1){ page--; loadPage(); } });
+    el("pgNext").addEventListener("click", function(){
+      var pages = Math.max(1, Math.ceil(TOTAL_MATCHED/(PER_PAGE||1)));
+      if(page < pages){ page++; loadPage(); }
+    });
+
+    el("tbody").addEventListener("change", function(e){
+      var t = e.target;
+      if(t.dataset.st) setStatus(t.dataset.st, t.value);
+      else if(t.dataset.kam) setKam(t.dataset.kam, t.value);
+    });
+    el("tbody").addEventListener("blur", function(e){
+      if(e.target.dataset && e.target.dataset.note) setNote(e.target.dataset.note, e.target.value);
+    }, true);
+    el("tbody").addEventListener("input", function(e){
+      var t = e.target;
+      if(!t.dataset || !t.dataset.note) return;
+      queueNote(t.dataset.note, t.value);
+    });
+    el("tbody").addEventListener("click", function(e){
+      var btn = e.target.closest ? e.target.closest(".copy") : null;
+      if(!btn) return;
+      var v = btn.getAttribute("data-copy");
+      if(navigator.clipboard && navigator.clipboard.writeText){
+        navigator.clipboard.writeText(v).then(function(){ toast("Copied " + v); },
+          function(){ fallbackCopy(v); });
+      } else fallbackCopy(v);
+    });
+
+    el("btnExport").addEventListener("click", exportCSV);
+    el("btnBackup").addEventListener("click", exportBackup);
+    el("fileIn").addEventListener("change", importBackup);
   }
 
   /* ============ boot ============ */
-  el("subCount").textContent = BIZ.length;
+  DB.loadConfig();
   buildSelects();
   wire();
-  wireSync();
+  wireDB();
   wireProj();
-  render();
-  renderSyncUI();
-  if(syncActive()) pullSheet(true);
+  renderDbUI();
+  render();                       // draws the empty state immediately
+  if(DB.ready()) refreshAll(); else renderConnectState();
 })();
 </script>
 </body>

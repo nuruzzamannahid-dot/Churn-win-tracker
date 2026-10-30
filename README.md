@@ -1,8 +1,9 @@
 # Churn Win Tracker
 
-Single-file static dashboard for the churn win-back campaign: 540 merchants
-(311 churn / 229 inactive) split between the two KAMs, Ahmed Asif Rashid and
-Nuruzzaman Nahid.
+Churn win-back dashboard for the two KAMs, Ahmed Asif Rashid and Nuruzzaman
+Nahid. Data lives in Supabase (see `docs/SUPABASE.md`); the page is a small
+static shell that pages through it, so it opens fast and both KAMs see each
+other's calls immediately.
 
 **Live:** https://churn-win-tracker.vercel.app
 
@@ -12,11 +13,18 @@ Nuruzzaman Nahid.
 | --- | --- |
 | `src/biz_data.json` | Raw merchant list — `[id, reason, name, phone]` |
 | `src/biz_metrics.json` | Hive metrics per business id — `{"359": {"orders":1240,"days":210}}` |
-| `src/template.html` | HTML/CSS/JS template with a `__DATA__` placeholder |
-| `build.py` | Merges the two JSON files into the template → `index.html` |
+| `src/template.html` | HTML/CSS/JS template with a `__DB__` placeholder |
+| `src/db.js` | Supabase/PostgREST data layer (paging, filters, writes) |
+| `build.py` | Inlines `src/db.js` into the template → `index.html` |
+| `supabase/schema.sql` | Tables, indexes, RLS policies and the `v_dashboard` view |
+| `supabase/import.py` | Seeds Supabase from the JSON/CSV sources |
+| `mock-supabase.js` | Miniature PostgREST used by the tests (no network) |
+| `test_db.js` | Data-layer tests (`node test_db.js`) |
+| `test_ui.js` | End-to-end UI tests against the mock (`node test_ui.js`) |
+| `docs/SUPABASE.md` | Setup, load management and security notes |
 | `import_hive.py` | Turns a Hive export (CSV/TSV/JSON) into `src/biz_metrics.json` |
 | `index.html` | Built, self-contained dashboard (this is what gets deployed) |
-| `apps-script/` | Optional Google Apps Script backend for Google Sheet sync |
+| `apps-script/` | Legacy Google Apps Script backend (superseded by Supabase) |
 | `docs/PASTE-IN-CONSOLE.js` | 6-line loader to paste in the browser console - use this one |
 | `docs/hive-orders-pull.js` | Generated console script: pulls lifetime orders + order dates for all 540 businesses |
 | `docs/hive-pull.js` | Console snippet that pulls the business list itself (name / phone / active days) |
