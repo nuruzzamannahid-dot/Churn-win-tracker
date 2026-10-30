@@ -3,7 +3,14 @@
 
 Row shape emitted to the page:
     [business_id, reason, name, phone, lifetime_orders, active_days,
-     orders_per_month, is_estimated]
+     orders_per_month, is_estimated, last_order_date, hive_churn]
+
+`last_order_date` is the ISO date of the merchant's most recent Hive order.
+
+`hive_churn` is 1 when Hive's own churn check flags the merchant (no order in
+the last 30+ days — see src/hive_churn_30plus_days.csv). Hive is the
+authoritative source for churn: the dashboard trusts Hive over any pre-labelled
+sheet column.
 
 orders_per_month is the historical run rate used by the projection panel. It is
 only measurable where order dates exist: a merchant capped at 100 orders by the
@@ -39,6 +46,21 @@ if metrics_path.exists():
         metrics = json.loads(metrics_path.read_text(encoding="utf-8")) or {}
     except json.JSONDecodeError as exc:
         sys.exit(f"src/biz_metrics.json is not valid JSON: {exc}")
+
+# Hive's own churn check: businesses with no order in the last 30+ days.
+# Authoritative source for churn — trusted over any pre-labelled sheet column.
+hive_churn_ids = set()
+churn_csv = root / "src/hive_churn_30plus_days.csv"
+if churn_csv.exists():
+    import csv as _csv
+    with open(churn_csv, newline="", encoding="utf-8") as fh:
+        for row in _csv.DictReader(fh):
+            bid = (row.get("business_id") or "").strip()
+            if bid:
+                hive_churn_ids.add(bid)
+    print(f"Hive churn list: {len(hive_churn_ids)} businesses (30+ days inactive)")
+else:
+    print(f"warning: {churn_csv} not found — churn detection falls back to order dates")
 
 
 def pick(entry):
@@ -102,8 +124,13 @@ for row in data:
         else:
             measured += 1
 
+    last_date = None
+    if isinstance(entry, dict) and entry.get("last"):
+        last_date = entry.get("last")
+
     rows.append([row[0], row[1], row[2], row[3], orders, days, per_month,
-                 1 if is_estimate else 0])
+                 1 if is_estimate else 0, last_date,
+                 1 if bid in hive_churn_ids else 0])
 
 raw = json.dumps(rows, ensure_ascii=False, separators=(",", ":")).replace("<", "\\u003c")
 tpl = (root / "src/template.html").read_text(encoding="utf-8")
