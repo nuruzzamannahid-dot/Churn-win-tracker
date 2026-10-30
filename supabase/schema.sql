@@ -12,6 +12,10 @@
 --     not zero: the UI renders a dash, and sorting puts NULLs last.
 --   * call_log keeps an append-only audit trail so a KAM's action history
 --     survives even though only the latest state lives on the row.
+--
+-- Re-running this file is safe: every statement is if-not-exists / or-replace /
+-- drop-if-exists. `supabase/hardening.sql` clears the remaining advisor
+-- findings and explains which ones are deliberate.
 
 create extension if not exists pg_trgm;      -- fast ILIKE '%term%' search
 
@@ -73,7 +77,10 @@ create index if not exists call_log_business_idx on public.call_log (business_id
 -- --------------------------------------------------------------------------
 -- aggregate view for the KPI cards, KAM board, donut and projection
 -- --------------------------------------------------------------------------
-create or replace view public.v_dashboard as
+-- security_invoker: the view must run as the caller, not as its owner, or it
+-- would bypass row level security for anon.
+create or replace view public.v_dashboard
+  with (security_invoker = on) as
 select
   (select count(*) from public.businesses)::int                        as total,
   (select count(*) from public.businesses where hive_churn)::int       as churn,
@@ -159,7 +166,9 @@ grant select on public.v_dashboard to anon, authenticated;
 -- keep the audit trail
 -- --------------------------------------------------------------------------
 create or replace function public.log_call_change() returns trigger
-language plpgsql as $$
+language plpgsql
+set search_path = public, pg_temp
+as $$
 begin
   if new.outcome is distinct from old.outcome then
     insert into public.call_log (business_id, kam, from_status, to_status)
@@ -208,7 +217,8 @@ grant select on public.businesses to anon, authenticated;
 -- --------------------------------------------------------------------------
 -- optional: analytics helper for the sheet-style export
 -- --------------------------------------------------------------------------
-create or replace view public.v_export as
+create or replace view public.v_export
+  with (security_invoker = on) as
 select id, reason, name, phone, lifetime_orders, active_days,
        case when active_days is null or active_days = 0 or lifetime_orders is null
             then null

@@ -37,6 +37,22 @@ That creates:
 | indexes | `lifetime_orders desc nulls last`, `(kam, outcome)`, `(hive_churn, lifetime_orders)`, trigram on `name`/`phone` |
 | policies | `anon` can read everything and update **only** `kam`, `outcome`, `notes` |
 
+## 2b. Clear the security advisor
+
+Run `supabase/hardening.sql` once. It fixes the two findings that matter:
+
+- **Security Definer View** on `v_dashboard` / `v_export` — Postgres creates
+  views as the owner by default, so they would bypass row level security for
+  anon. `security_invoker = on` makes them run as the caller.
+- **Function Search Path Mutable** on `log_call_change()` — pins `search_path`
+  so a caller-controlled schema cannot hijack the trigger.
+
+`RLS Policy Always True` on `businesses` is **deliberate** and will stay in the
+list: this is an internal tool driven by the public anon key. The column-level
+grant is what limits the damage — anon can update `kam`/`outcome`/`notes` and
+nothing else. `Extension in Public` (`pg_trgm`) is low risk and the fix is
+commented out at the bottom of `hardening.sql`.
+
 ## 3. Load the data
 
 ```bash
@@ -92,7 +108,10 @@ and press **Save & connect**.
 
 ## Tests
 
-`node test_db.js` (45 checks) exercises the data layer against a miniature
+Install the DOM dependency once: `npm install jsdom` (it is not committed).
+
+`node test_db.js` (48 checks) exercises the data layer against a miniature
 PostgREST, and `node test_ui.js` (35 checks) drives the real `index.html` against
-the same mock: paging, sorting, filters, writes and the KPI refresh. Neither
-needs a Supabase account or network access.
+the same mock: paging, sorting, filters, writes and the KPI refresh.
+`python3 test_schema.py` parses the SQL with the real Postgres grammar (needs
+`pglast`). None of them need a Supabase account or network access.
