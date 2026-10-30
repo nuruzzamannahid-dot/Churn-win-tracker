@@ -6,8 +6,13 @@ a 2.3 MB bundle, and filtering/sorting/paging are indexed queries.
 
 ## 1. Create the project
 
-<https://supabase.com> → New project. Note the **Project URL** and the
-**anon public** key from *Project Settings → API*.
+<https://supabase.com> → New project (region **Southeast Asia (Singapore)** is
+the closest to Dhaka). Then copy two values from *Project Settings → API Keys*:
+
+- **Project URL** — `https://<ref>.supabase.co`
+- **anon public** key — the long `eyJ…` JWT. Newer dashboards list it under
+  *Legacy API keys*; the `sb_publishable_…` key works too. Do **not** use
+  `service_role`.
 
 > Use the `anon` key only. The `service_role` key bypasses row level security —
 > anything pasted into the page is readable by anyone who opens it.
@@ -39,11 +44,15 @@ per-merchant run rates will match what the dashboard showed before the move. It
 is safe to re-run: uploads merge on the primary key and **do not touch**
 `kam`/`outcome`/`notes`, so live call work is never overwritten.
 
-Prefer SQL? Load the CSV from the SQL editor:
+Prefer no terminal? Import the CSV from the Studio:
 
-```sql
-\copy public.businesses from 'businesses.csv' csv header
-```
+1. `python3 supabase/import.py` writes `supabase/businesses.csv` (30,507 rows, ~2.2 MB)
+2. Supabase → **Table Editor → businesses → Insert → Import data from CSV**
+3. Pick the file, keep the header row, and confirm the column mapping
+   (`lifetime_orders`, `active_days`, `orders_per_month` → numeric,
+   `is_estimated` / `hive_churn` → boolean)
+
+`\copy` only works in `psql`; the web SQL editor does not run it.
 
 ## 4. Connect the dashboard
 
