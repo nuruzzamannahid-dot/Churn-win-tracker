@@ -39,7 +39,13 @@ That creates:
 
 ## 2b. Clear the security advisor
 
-Run `supabase/hardening.sql` once. It fixes the two findings that matter:
+Run `supabase/hardening.sql` once. It fixes the three things that matter:
+
+- **The audit trigger must be `security definer`.** `anon` holds no INSERT grant
+  on `call_log`, so a caller-rights trigger makes every outcome change fail with
+  *"new row violates row-level security policy for table call_log"*. The
+  dashboard looks healthy and silently refuses to save calls. Verified against
+  the live project by writing as the `anon` role.
 
 - **Security Definer View** on `v_dashboard` / `v_export` — Postgres creates
   views as the owner by default, so they would bypass row level security for

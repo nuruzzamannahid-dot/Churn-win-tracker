@@ -65,6 +65,10 @@ for rel in FILES:
         ok("v_export runs as the caller", "v_export" in views, str(views))
         ok("trigger function pins search_path",
            bool(re.search(r"function public\.log_call_change\(\)[\s\S]{0,200}set search_path", src, re.I)))
+        # anon has no INSERT grant on call_log: without security definer every
+        # outcome change fails RLS and the dashboard silently refuses to save.
+        ok("trigger function is security definer",
+           bool(re.search(r"function public\.log_call_change\(\)[\s\S]{0,200}security definer", src, re.I)))
 
         ok("anon may write only the three call columns",
            bool(re.search(r"grant update \(kam, outcome, notes\) on public\.businesses to anon", src, re.I)))

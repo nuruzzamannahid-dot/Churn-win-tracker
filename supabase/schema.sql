@@ -165,8 +165,13 @@ grant select on public.v_dashboard to anon, authenticated;
 -- --------------------------------------------------------------------------
 -- keep the audit trail
 -- --------------------------------------------------------------------------
+-- security definer on purpose: anon holds no INSERT grant on call_log, so a
+-- trigger running as the caller would make every outcome change fail with
+-- "new row violates row-level security policy for table call_log". Running as
+-- the owner writes the audit row without giving anon a way to forge one.
 create or replace function public.log_call_change() returns trigger
 language plpgsql
+security definer
 set search_path = public, pg_temp
 as $$
 begin

@@ -5,6 +5,10 @@
 --
 -- Two of the findings matter:
 --
+--   0. The audit trigger must run as its owner. anon is granted no INSERT on
+--      call_log, so a caller-rights trigger makes every call outcome change
+--      fail — the dashboard would look fine and silently refuse to save.
+--
 --   1. "Security Definer View" (CRITICAL) on v_dashboard and v_export.
 --      Postgres 15+ creates views as SECURITY DEFINER by default, which means
 --      the view selects as its owner (postgres) and row level security is
@@ -30,8 +34,12 @@ alter view public.v_export    set (security_invoker = on);
 -- --------------------------------------------------------------------------
 -- 2. pin the trigger function's search_path
 -- --------------------------------------------------------------------------
+-- security definer: anon has no INSERT grant on call_log, so without this every
+-- outcome change fails with "new row violates row-level security policy for
+-- table call_log". The pinned search_path below is what makes definer safe.
 create or replace function public.log_call_change() returns trigger
 language plpgsql
+security definer
 set search_path = public, pg_temp          -- no implicit lookup outside these
 as $$
 begin
