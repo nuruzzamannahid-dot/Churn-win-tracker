@@ -177,11 +177,41 @@
     }
     save(db);
     console.log("Batch done — " + ok + " with a count, " + blank + " left blank. Total stored: " + Object.keys(db).length);
+    if (ok === 0 && blank > 0) {
+      console.warn("Every row in that batch came back blank — the request is probably not being read.");
+      console.warn("Stop and run:  await HO.raw(\"" + todo[0][1] + "\")  and send me the output.");
+    }
     download(buildCsv(db), "hive_orders_all.csv");
+  }
+
+  var stopped = false;
+
+  /* Keep pulling batch after batch until everything is collected or HO.stop(). */
+  async function auto(batch) {
+    await loadBiz();
+    stopped = false;
+    batch = batch || 500;
+    var left = BIZ.length - Object.keys(load()).length;
+    console.log("AUTO — " + left + " businesses left, " + batch + " per batch. Type HO.stop() to pause.");
+    while (!stopped) {
+      var before = Object.keys(load()).length;
+      await run(batch);
+      var after = Object.keys(load()).length;
+      if (after >= BIZ.length) {
+        console.log("%cALL DONE — " + after + "/" + BIZ.length + " collected", "color:#0E9F6E;font-weight:bold");
+        download(buildCsv(load()), "hive_orders_all.csv");
+        break;
+      }
+      if (stopped) { console.log("Paused at " + after + "/" + BIZ.length + " — progress saved."); break; }
+      if (after === before) { console.warn("No progress in that batch — stopping."); break; }
+      await sleep(500);
+    }
   }
 
   window.HO = {
     run: run,
+    auto: auto,
+    stop: function () { stopped = true; console.log("Stopping after the current batch…"); },
     progress: function () { var db = load(); console.log(Object.keys(db).length + " / " + BIZ.length + " collected"); },
     csv: function () { download(buildCsv(load()), "hive_orders_all.csv"); },
     clear: function () { localStorage.removeItem(KEY); console.log("cleared"); },
