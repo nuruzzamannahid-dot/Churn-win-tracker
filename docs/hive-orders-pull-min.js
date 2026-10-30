@@ -1,4 +1,11 @@
 /* Hive lifetime-orders puller — compact, paste-safe version.
+ * Load it with docs/LOAD-MIN.js (a <script src> tag is refused: GitHub serves
+ * .js as text/plain, which Chrome will not execute).
+ * Then use:
+ *   HO.progress()        // how many of 30,507 are collected
+ *   await HO.auto(500)   // pull everything remaining, batch after batch
+ *   HO.stop()            // pause after the current batch
+ *
  * Paste this whole file into the console on https://hive.carrybee.com/orders
  * then:  await HO.run(100)        // pull the next 100 not-yet-done businesses
  *        await HO.run(500)        // next 500
