@@ -31,8 +31,16 @@ const DB = globalThis.DB;
   const mock = await startMock({ limit: 600 });
   console.log(`mock: ${mock.dataset.length} businesses at ${mock.url}\n`);
 
-  console.log("connection");
-  ok("not ready before configuring", DB.ready() === false);
+  console.log("shipped defaults");
+  const shipped = DB.config();
+  ok("ships a project URL", /^https:\/\/[a-z]+\.supabase\.co$/.test(shipped.url), shipped.url);
+  ok("ships a publishable key, never a secret one",
+     /^sb_publishable_/.test(shipped.key) || /^eyJ/.test(shipped.key), shipped.key.slice(0, 20));
+  ok("never ships a service_role / secret key",
+     !/service_role|sb_secret_/.test(JSON.stringify(shipped)));
+  ok("ready out of the box", DB.ready() === true);
+
+  console.log("\nconnection");
   DB.configure(mock.url + "/", "test-key");
   ok("ready after configuring", DB.ready() === true);
   ok("configure strips the trailing slash", DB.config().url === mock.url, DB.config().url);
