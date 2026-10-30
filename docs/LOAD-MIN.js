@@ -8,7 +8,7 @@
  * the source as text and evaluating it sidesteps that, and it is the same route the
  * business list JSON uses.
  */
-fetch("https://raw.githubusercontent.com/nuruzzamannahid-dot/Churn-win-tracker/arena/e5e02462-churn-win-tracker/docs/hive-orders-pull-min.js?v=" + Date.now())
+fetch("https://raw.githubusercontent.com/nuruzzamannahid-dot/Churn-win-tracker/main/docs/hive-orders-pull-min.js?v=" + Date.now())
   .then(function (r) {
     if (!r.ok) throw new Error("HTTP " + r.status);
     return r.text();
