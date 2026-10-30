@@ -8,6 +8,7 @@
  * Sheet layout (Sheet1)
  *   A Business ID | B Reason | C Business Name | D Phone
  *   E Assigned KAM | F Outcome | G Notes | H Updated
+ *   I Lifetime orders | J Avg order / day
  *
  * Routes
  *   GET  ?action=ping          -> { ok:true, ... }           (connection test)
@@ -29,8 +30,11 @@
 var SPREADSHEET_ID = '1X0ILBCnzOp8xAGmvCyE5GuIt7wzr-r8K7DgQZsqWieY';
 var SHEET_NAME = 'Sheet1';
 
-// Column indexes (0-based): E=4 KAM, F=5 Outcome, G=6 Notes, H=7 Updated
+// Column indexes (0-based): E=4 KAM, F=5 Outcome, G=6 Notes, H=7 Updated,
+// I=8 lifetime orders, J=9 average order per active day.
 var COL_KAM = 4, COL_OUTCOME = 5, COL_NOTES = 6, COL_UPDATED = 7;
+var COL_ORDERS = 8, COL_AVG = 9;
+var LAST_COL = 10;
 
 function getSheet_() {
   var ss = SPREADSHEET_ID
@@ -39,15 +43,22 @@ function getSheet_() {
   var sh = ss.getSheetByName(SHEET_NAME) || ss.getSheets()[0];
 
   // make sure the headers exist
-  var want = { 4: 'Assigned KAM', 5: 'Outcome', 6: 'Notes', 7: 'Updated' };
-  var hdr = sh.getRange(1, 1, 1, 8).getValues()[0];
+  var want = {
+    4: 'Assigned KAM', 5: 'Outcome', 6: 'Notes', 7: 'Updated',
+    8: 'Lifetime orders', 9: 'Avg order / day'
+  };
+  var hdr = sh.getRange(1, 1, 1, LAST_COL).getValues()[0];
   var dirty = false;
   Object.keys(want).forEach(function (i) {
     if (!hdr[i]) { hdr[i] = want[i]; dirty = true; }
   });
-  if (dirty) sh.getRange(1, 1, 1, 8).setValues([hdr]);
+  if (dirty) sh.getRange(1, 1, 1, LAST_COL).setValues([hdr]);
 
   return sh;
+}
+
+function has_(o, k) {
+  return Object.prototype.hasOwnProperty.call(o, k);
 }
 
 /** Business ID -> row number (1-based), computed once per request. */
@@ -104,8 +115,9 @@ function doGet(e) {
 }
 
 /**
- * POST body: { updates: [ { id, kam, outcome, notes, updated }, ... ] }
- * Writes E..H per Business ID. Unknown IDs are reported back, not created.
+ * POST body: { updates: [ { id, kam, outcome, notes, updated, orders, avg }, ... ] }
+ * Writes whichever of E..J the update carries. Unknown IDs are reported back,
+ * not created.
  */
 function doPost(e) {
   var lock = LockService.getScriptLock();
@@ -132,13 +144,25 @@ function doPost(e) {
       var row = idx[id];
       if (!row) { skipped.push(id); return; }
 
-      var updated = u.updated ? new Date(u.updated) : new Date();
-      if (isNaN(updated.getTime())) updated = new Date();
-
-      sh.getRange(row, COL_KAM + 1).setValue(u.kam || '');
-      sh.getRange(row, COL_OUTCOME + 1).setValue(u.outcome || '');
-      sh.getRange(row, COL_NOTES + 1).setValue(u.notes || '');
-      sh.getRange(row, COL_UPDATED + 1).setValue(updated);
+      // Only touch a column when the update actually carries that field. An
+      // orders-only push must not blank another KAM's notes.
+      if (has_(u, 'kam'))     sh.getRange(row, COL_KAM + 1).setValue(u.kam || '');
+      if (has_(u, 'outcome')) sh.getRange(row, COL_OUTCOME + 1).setValue(u.outcome || '');
+      if (has_(u, 'notes'))   sh.getRange(row, COL_NOTES + 1).setValue(u.notes || '');
+      if (has_(u, 'updated')) {
+        var updated = u.updated ? new Date(u.updated) : new Date();
+        if (isNaN(updated.getTime())) updated = new Date();
+        sh.getRange(row, COL_UPDATED + 1).setValue(updated);
+      }
+      if (has_(u, 'orders')) {
+        sh.getRange(row, COL_ORDERS + 1)
+          .setValue(u.orders === null || u.orders === '' || u.orders === undefined ? '' : u.orders);
+      }
+      if (has_(u, 'avg')) {
+        var a = u.avg;
+        sh.getRange(row, COL_AVG + 1)
+          .setValue(a === null || a === '' || a === undefined ? '' : Math.round(a * 100) / 100);
+      }
       written++;
     });
 
