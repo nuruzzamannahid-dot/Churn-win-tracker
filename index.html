@@ -466,7 +466,7 @@
             <th style="width:92px">Business ID</th>
             <th>Business</th>
             <th>Phone</th>
-            <th class="num mx sort" onclick="toggleSort('orders')" title="Orders placed in Hive, lifetime">Lifetime orders <span class="sortdir" id="sortdir-orders">&#9660;</span></th>
+            <th class="num mx sort" data-sort="orders" role="button" tabindex="0" title="Orders placed in Hive, lifetime — click to sort">Lifetime orders <span class="sortdir" id="sortdir-orders">&#9660;</span></th>
             <th class="num mx" title="Lifetime orders divided by active days in Hive">Avg/day</th>
             <th>Reason</th>
             <th>Assigned KAM</th>
@@ -862,8 +862,13 @@
       }
       return true;
     }).sort(function(a, b){
-      var av = a[filters.sortKey] == null ? -1 : a[filters.sortKey];
-      var bv = b[filters.sortKey] == null ? -1 : b[filters.sortKey];
+      var av = a[filters.sortKey], bv = b[filters.sortKey];
+      av = (av === null || av === undefined || av === "") ? null : av;
+      bv = (bv === null || bv === undefined || bv === "") ? null : bv;
+      // A missing value sorts last in both directions: "—" first is never useful.
+      if(av === null && bv === null) return 0;
+      if(av === null) return 1;
+      if(bv === null) return -1;
       if(filters.sortDir === "desc") return bv - av;
       return av - bv;
     });
@@ -909,7 +914,7 @@
       el.textContent = "";
     });
     var sd = el("sortdir-"+key);
-    if(sd) sd.textContent = filters.sortDir === "desc" ? "&#9660;" : "&#9650;";
+    if(sd) sd.textContent = filters.sortDir === "desc" ? "\u25BC" : "\u25B2";
     page = 1;
     renderTable();
   }
@@ -1153,6 +1158,16 @@
 
   function wire(){
     var q = el("q");
+
+    /* Sort headers. An inline onclick="toggleSort(...)" cannot work: the handler
+       runs in global scope and toggleSort lives inside this IIFE. */
+    Array.prototype.forEach.call(document.querySelectorAll("th[data-sort]"), function(th){
+      var key = th.getAttribute("data-sort");
+      th.addEventListener("click", function(){ toggleSort(key); });
+      th.addEventListener("keydown", function(e){
+        if(e.key === "Enter" || e.key === " "){ e.preventDefault(); toggleSort(key); }
+      });
+    });
     q.addEventListener("input", function(){ filters.q = q.value; page = 1; renderTable(); });
     el("fKam").addEventListener("change", function(e){ filters.kam = e.target.value; page=1; renderTable(); });
     el("fStatus").addEventListener("change", function(e){ filters.status = e.target.value; page=1; renderTable(); });
@@ -1164,7 +1179,8 @@
       renderTable();
     });
     el("btnClearFilters").addEventListener("click", function(){
-      filters = { q:"", kam:"", status:"", reason:"" };
+      // keep sortKey/sortDir: replacing the object used to drop the sort
+      filters.q = ""; filters.kam = ""; filters.status = ""; filters.reason = "";
       q.value=""; el("fKam").value=""; el("fStatus").value=""; el("fReason").value="";
       page = 1; renderTable(); toast("Filters cleared");
     });
