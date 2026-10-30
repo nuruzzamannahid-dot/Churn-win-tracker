@@ -175,6 +175,13 @@
   td.biz{max-width:260px}
   .bname{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Noto Sans Bengali","Nirmala UI","Vrinda","SolaimanLipi","Kalpurush",sans-serif;font-weight:600;color:var(--ink);display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .bid{font-size:11px;color:var(--soft);font-variant-numeric:tabular-nums}
+  td.bizid{font-variant-numeric:tabular-nums;font-size:12px;color:var(--ink);
+           white-space:nowrap;letter-spacing:.2px}
+  .idwrap{display:flex;align-items:center;gap:4px}
+  .idwrap .copy{opacity:0}
+  tr:hover .idwrap .copy{opacity:1}
+  .pgselect{border:1px solid var(--line);border-radius:8px;background:var(--card);
+            color:var(--ink);font-size:12px;padding:5px 7px;font-family:inherit;cursor:pointer}
   .pill{display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:99px;
     font-size:11px;font-weight:700;white-space:nowrap}
   .phone{font-variant-numeric:tabular-nums;font-weight:600;color:var(--ink);text-decoration:none;white-space:nowrap}
@@ -445,6 +452,7 @@
       <div class="spacer"></div>
       <span class="mxnote" id="mxNote" title="Merchants with Hive order data loaded"></span>
       <span class="count" id="tblCount"></span>
+      <button class="btn btn-line" id="btnCopyList" title="Copy ID, name and phone for the rows shown">Copy list</button>
       <button class="btn btn-line" id="btnClearFilters">Clear filters</button>
     </div>
     <div class="tscroll">
@@ -452,6 +460,7 @@
         <thead>
           <tr>
             <th style="width:34px">#</th>
+            <th style="width:92px">Business ID</th>
             <th>Business</th>
             <th>Phone</th>
             <th class="num mx" title="Orders placed in Hive, lifetime">Lifetime orders</th>
@@ -469,6 +478,12 @@
     <div class="pager">
       <div class="info" id="pgInfo"></div>
       <div class="ctrl">
+        <select class="pgselect" id="pgSize" title="Rows per page">
+          <option value="50">50 / page</option>
+          <option value="100">100 / page</option>
+          <option value="250">250 / page</option>
+          <option value="0">All</option>
+        </select>
         <button class="pg" id="pgPrev">Prev</button>
         <span class="info" id="pgNum">1 / 1</span>
         <button class="pg" id="pgNext">Next</button>
@@ -559,10 +574,20 @@
       orders:numOrNull(r[4]),      // lifetime orders (Hive)
       days:numOrNull(r[5]),        // active days (Hive)
       perMonth:numOrNull(r[6]),    // historical orders/month, for the projection
-      est:(r[7] === 1)             // true when that rate is inferred, not measured
+      est:(r[7] === 1),            // true when that rate is inferred, not measured
+      last:r[8] || null,           // ISO date of most recent Hive order (reference)
+      hiveChurn:r[9] === 1         // 1 when Hive's own churn check flags the merchant
     };
   });
   var BYID = {}; BIZ.forEach(function(b){ BYID[b.id]=b; });
+
+  /* Churn is detected from Hive itself, not from a sheet label: Hive's own
+     check flags merchants with no order in the last 30+ days. That flag comes
+     from src/hive_churn_30plus_days.csv and is authoritative — it overrides any
+     pre-labelled sheet column and any date-based guess. */
+  function hiveChurn(b){
+    return !!b.hiveChurn;
+  }
 
   var LS_KEY = "cwt.v1";
   var PER_PAGE = 50;
@@ -683,7 +708,7 @@
     });
     BIZ.forEach(function(b){
       var s = statusOf(b.id), k = kamOf(b.id);
-      if(b.reason === "Churn") out.churn++; else out.inactive++;
+      if(hiveChurn(b)) out.churn++; else out.inactive++;
       out.byStatus[s]++;
       if(isContacted(s)) out.contacted++;
       if(isWin(s)) out.won++;
@@ -699,7 +724,7 @@
       if(s==="no_answer") kk.noAnswer++;
       if(s==="callback") kk.callback++;
       if(s==="pending") kk.pending++;
-      if(b.reason === "Churn"){ kk.churnTotal++; if(isWin(s)) kk.churnWon++; }
+      if(hiveChurn(b)){ kk.churnTotal++; if(isWin(s)) kk.churnWon++; }
       else { kk.inactiveTotal++; if(isWin(s)) kk.inactiveWon++; }
     });
     return out;
@@ -804,7 +829,7 @@
     var churnDone = 0, inactDone = 0, churnWon=0, inactWon=0;
     BIZ.forEach(function(b){
       var s = statusOf(b.id);
-      if(b.reason === "Churn"){ if(isContacted(s)) churnDone++; if(isWin(s)) churnWon++; }
+      if(hiveChurn(b)){ if(isContacted(s)) churnDone++; if(isWin(s)) churnWon++; }
       else { if(isContacted(s)) inactDone++; if(isWin(s)) inactWon++; }
     });
     el("churnTxt").textContent = churnDone + " / " + t.churn + " called · " + churnWon + " won back";
@@ -814,13 +839,14 @@
   }
 
   /* ============ table ============ */
-  var filters = { q:"", kam:"", status:"", reason:"" };
+  var filters = { q:"", kam:"", status:"", reason:"Churn" };
   var page = 1;
 
   function filtered(){
     var q = filters.q.trim().toLowerCase();
     return BIZ.filter(function(b){
-      if(filters.reason && b.reason !== filters.reason) return false;
+      if(filters.reason === "Churn" && !hiveChurn(b)) return false;
+      if(filters.reason === "Inactive" && hiveChurn(b)) return false;
       if(filters.kam && kamOf(b.id) !== filters.kam) return false;
       var s = statusOf(b.id);
       if(filters.status){
@@ -835,11 +861,40 @@
     });
   }
 
+  function copyText(text){
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      return navigator.clipboard.writeText(text);
+    }
+    var ta = document.createElement("textarea");
+    ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
+    document.body.appendChild(ta); ta.select();
+    try{ document.execCommand("copy"); }catch(e){}
+    document.body.removeChild(ta);
+    return Promise.resolve();
+  }
+
+  /* Copies ID, name and phone for whatever the filters currently show, so a
+     churn call list can be pasted straight into a sheet. */
+  function copyList(){
+    var rows = filtered();
+    if(!rows.length){ toast("Nothing to copy — clear the filters first"); return; }
+    var text = rows.map(function(b){
+      var name = String(b.name).replace(/[\t\r\n]+/g, " ");
+      return b.id + "\t" + name + "\t" + b.phone;
+    }).join("\n");
+    copyText(text).then(function(){
+      toast("Copied " + rows.length + " rows · ID, name, phone");
+    }, function(){
+      toast("Copy blocked by the browser — use Export CSV instead");
+    });
+  }
+
   function renderTable(){
     var rows = filtered();
-    var pages = Math.max(1, Math.ceil(rows.length/PER_PAGE));
+    var per = PER_PAGE > 0 ? PER_PAGE : Math.max(1, rows.length);
+    var pages = Math.max(1, Math.ceil(rows.length/per));
     if(page > pages) page = pages;
-    var slice = rows.slice((page-1)*PER_PAGE, page*PER_PAGE);
+    var slice = rows.slice((page-1)*per, page*per);
 
     el("tbody").innerHTML = slice.length ? slice.map(function(b, i){
       var s = statusOf(b.id), st = S_BY_ID[s], k = kamOf(b.id), r = state.records[b.id];
@@ -850,27 +905,30 @@
       var sOpts = STATUSES.map(function(x){
         return '<option value="'+x.id+'"'+(x.id===s?' selected':'')+'>'+x.label+'</option>';
       }).join("");
-      var idx = (page-1)*PER_PAGE + i + 1;
+      var idx = (page-1)*per + i + 1;
       return '<tr class="'+(isWin(s)?'winrow':'')+'">'+
         '<td style="color:var(--soft);font-size:11px">'+idx+'</td>'+
-        '<td class="biz"><span class="bname" title="'+esc(b.name)+'">'+esc(b.name)+'</span>'+
-          '<span class="bid">#'+esc(b.id)+'</span></td>'+
+        '<td class="bizid"><span class="idwrap">'+esc(b.id)+
+          '<button class="copy" data-copy="'+esc(b.id)+'" title="Copy business ID">'+
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>'+
+          '</button></span></td>'+
+        '<td class="biz"><span class="bname" title="'+esc(b.name)+'">'+esc(b.name)+'</span></td>'+
         '<td><a class="phone" href="tel:'+esc(b.phone)+'">'+esc(fmtPhone(b.phone))+'</a> '+
           '<button class="copy" data-copy="'+esc(b.phone)+'" title="Copy number">'+
           '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>'+
           '</button></td>'+
         '<td class="num mx'+(b.orders===null?' zero':'')+'">'+fmtCount(b.orders)+'</td>'+
         '<td class="num avg mx">'+fmtAvg(avgPerDay(b))+'</td>'+
-        '<td><span class="pill" style="color:'+(b.reason==="Churn"?"#B91C1C":"#B45309")+';background:'+(b.reason==="Churn"?"#FEF2F2":"#FFFBEB")+'">'+esc(b.reason)+'</span></td>'+
+        '<td><span class="pill" style="color:'+(hiveChurn(b)?"#B91C1C":"#15803d")+';background:'+(hiveChurn(b)?"#FEF2F2":"#F0FDF4")+'">'+(hiveChurn(b)?"Churn":"Active")+'</span></td>'+
         '<td><select class="kam" data-kam="'+esc(b.id)+'" style="color:'+kObj.color+';border-color:'+kObj.color+'33">'+kOpts+'</select></td>'+
         '<td><select class="st" data-st="'+esc(b.id)+'" style="color:'+st.fg+';background-color:'+st.bg+'">'+sOpts+'</select></td>'+
         '<td><input class="note" data-note="'+esc(b.id)+'" value="'+esc(r?r.n:"")+'" placeholder="Add a note…"></td>'+
         '<td class="when">'+relTime(r?r.t:0)+'</td>'+
       '</tr>';
-    }).join("") : '<tr><td colspan="10"><div class="empty">No businesses match these filters.</div></td></tr>';
+    }).join("") : '<tr><td colspan="11"><div class="empty">No businesses match these filters.</div></td></tr>';
 
-    var from = rows.length ? (page-1)*PER_PAGE+1 : 0;
-    var to = Math.min(page*PER_PAGE, rows.length);
+    var from = rows.length ? (page-1)*per+1 : 0;
+    var to = Math.min(page*per, rows.length);
     el("pgInfo").textContent = rows.length ? ("Showing "+from+"–"+to+" of "+rows.length) : "No results";
     el("pgNum").textContent = page+" / "+pages;
     el("pgPrev").disabled = page <= 1;
@@ -1074,6 +1132,12 @@
     el("fKam").addEventListener("change", function(e){ filters.kam = e.target.value; page=1; renderTable(); });
     el("fStatus").addEventListener("change", function(e){ filters.status = e.target.value; page=1; renderTable(); });
     el("fReason").addEventListener("change", function(e){ filters.reason = e.target.value; page=1; renderTable(); });
+    el("btnCopyList").addEventListener("click", copyList);
+    el("pgSize").addEventListener("change", function(){
+      PER_PAGE = parseInt(this.value, 10) || 0;
+      page = 1;
+      renderTable();
+    });
     el("btnClearFilters").addEventListener("click", function(){
       filters = { q:"", kam:"", status:"", reason:"" };
       q.value=""; el("fKam").value=""; el("fStatus").value=""; el("fReason").value="";
