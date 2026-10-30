@@ -49,7 +49,7 @@ if metrics_path.exists():
 
 # Hive's own churn check: businesses with no order in the last 30+ days.
 # Authoritative source for churn — trusted over any pre-labelled sheet column.
-hive_churn_ids = set()
+hive_churn = {}   # bid -> {name, phone} for businesses in Hive's churn list
 churn_csv = root / "src/hive_churn_30plus_days.csv"
 if churn_csv.exists():
     import csv as _csv
@@ -57,8 +57,11 @@ if churn_csv.exists():
         for row in _csv.DictReader(fh):
             bid = (row.get("business_id") or "").strip()
             if bid:
-                hive_churn_ids.add(bid)
-    print(f"Hive churn list: {len(hive_churn_ids)} businesses (30+ days inactive)")
+                hive_churn[bid] = {
+                    "name": (row.get("business_name") or "").strip(),
+                    "phone": (row.get("business_phone") or "").strip(),
+                }
+    print(f"Hive churn list: {len(hive_churn)} businesses (30+ days inactive)")
 else:
     print(f"warning: {churn_csv} not found — churn detection falls back to order dates")
 
@@ -130,7 +133,23 @@ for row in data:
 
     rows.append([row[0], row[1], row[2], row[3], orders, days, per_month,
                  1 if is_estimate else 0, last_date,
-                 1 if bid in hive_churn_ids else 0])
+                 1 if bid in hive_churn else 0])
+
+# Add Hive-churn businesses that are NOT already in the dashboard (biz_data.json).
+# These come straight from Hive's churn check — no order in 30+ days.
+existing_ids = {str(r[0]) for r in data}
+new_added = 0
+for bid in sorted(hive_churn):
+    if bid in existing_ids:
+        continue
+    info = hive_churn[bid]
+    rows.append([bid, "Churn", info["name"], info["phone"], None, None, None,
+                 0, None, 1])
+    new_added += 1
+    existing_ids.add(bid)
+
+if new_added:
+    print(f"Hive churn additions: {new_added} new businesses added from Hive churn list")
 
 raw = json.dumps(rows, ensure_ascii=False, separators=(",", ":")).replace("<", "\\u003c")
 tpl = (root / "src/template.html").read_text(encoding="utf-8")
@@ -140,7 +159,7 @@ out = tpl.replace("__DATA__", raw)
 (root / "index.html").write_text(out, encoding="utf-8")
 
 unknown = sorted(set(metrics) - {str(r[0]) for r in data})
-print(f"built index.html - {len(data)} rows, {len(out):,} bytes")
+print(f"built index.html - {len(rows)} rows ({len(data)} from sheet + {new_added} new from Hive), {len(out):,} bytes")
 print(f"Hive metrics: {filled}/{len(data)} rows matched")
 print(f"run rate     : {measured} measured from order dates, {estimated} estimated from active days")
 if unknown:
