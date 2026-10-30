@@ -103,37 +103,43 @@ for entry in metrics.values():
         _ratios.append(months / days)
 MONTHS_PER_ACTIVE_DAY = statistics.median(_ratios) if _ratios else 1 / 4
 
-rows = []
-filled = 0
-measured = estimated = 0
-for row in data:
-    bid = str(row[0])
-    orders, days = pick(metrics.get(bid))
-    if orders is not None:
-        filled += 1
+def build_row(bid, reason, name, phone):
+    """One page row, with whatever Hive metrics exist for this business id.
 
-    entry = metrics.get(bid) if isinstance(metrics.get(bid), dict) else {}
+    Used for both the sheet rows and the Hive-churn additions, so a business
+    discovered from Hive's churn check gets its measured orders/dates too.
+    """
+    entry = metrics.get(bid)
+    if not isinstance(entry, dict):
+        entry = {}
+    orders, days = pick(entry)
+
     months = span_months(entry)
-    is_estimate = False
-    if months is None:
-        is_estimate = True
+    is_estimate = months is None
+    if is_estimate:
         months = max((days or 0) * MONTHS_PER_ACTIVE_DAY, 0.5)
 
     per_month = None
     if orders is not None:
         per_month = round(orders / months, 2)
-        if is_estimate:
+
+    return [bid, reason, name, phone, orders, days, per_month,
+            1 if is_estimate else 0, entry.get("last") or None,
+            1 if bid in hive_churn else 0], orders is not None, orders is not None and is_estimate
+
+
+rows = []
+filled = 0
+measured = estimated = 0
+for row in data:
+    page_row, has_orders, is_est = build_row(str(row[0]), row[1], row[2], row[3])
+    rows.append(page_row)
+    if has_orders:
+        filled += 1
+        if is_est:
             estimated += 1
         else:
             measured += 1
-
-    last_date = None
-    if isinstance(entry, dict) and entry.get("last"):
-        last_date = entry.get("last")
-
-    rows.append([row[0], row[1], row[2], row[3], orders, days, per_month,
-                 1 if is_estimate else 0, last_date,
-                 1 if bid in hive_churn else 0])
 
 # Add Hive-churn businesses that are NOT already in the dashboard (biz_data.json).
 # These come straight from Hive's churn check — no order in 30+ days.
@@ -143,8 +149,14 @@ for bid in sorted(hive_churn):
     if bid in existing_ids:
         continue
     info = hive_churn[bid]
-    rows.append([bid, "Churn", info["name"], info["phone"], None, None, None,
-                 0, None, 1])
+    page_row, has_orders, is_est = build_row(bid, "Churn", info["name"], info["phone"])
+    rows.append(page_row)
+    if has_orders:
+        filled += 1
+        if is_est:
+            estimated += 1
+        else:
+            measured += 1
     new_added += 1
     existing_ids.add(bid)
 
@@ -158,9 +170,9 @@ if "__DATA__" not in tpl:
 out = tpl.replace("__DATA__", raw)
 (root / "index.html").write_text(out, encoding="utf-8")
 
-unknown = sorted(set(metrics) - {str(r[0]) for r in data})
+unknown = sorted(set(metrics) - existing_ids)   # every id emitted (sheet rows + Hive churn)
 print(f"built index.html - {len(rows)} rows ({len(data)} from sheet + {new_added} new from Hive), {len(out):,} bytes")
-print(f"Hive metrics: {filled}/{len(data)} rows matched")
+print(f"Hive metrics: {filled}/{len(rows)} rows matched")
 print(f"run rate     : {measured} measured from order dates, {estimated} estimated from active days")
 if unknown:
     print(f"warning: {len(unknown)} metric id(s) not in biz_data.json: {', '.join(unknown[:10])}"
