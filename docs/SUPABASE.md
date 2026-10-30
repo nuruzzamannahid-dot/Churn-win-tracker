@@ -108,7 +108,10 @@ and press **Save & connect**.
 
 ## Tests
 
-`node test_db.js` (45 checks) exercises the data layer against a miniature
+Install the DOM dependency once: `npm install jsdom` (it is not committed).
+
+`node test_db.js` (48 checks) exercises the data layer against a miniature
 PostgREST, and `node test_ui.js` (35 checks) drives the real `index.html` against
-the same mock: paging, sorting, filters, writes and the KPI refresh. Neither
-needs a Supabase account or network access.
+the same mock: paging, sorting, filters, writes and the KPI refresh.
+`python3 test_schema.py` parses the SQL with the real Postgres grammar (needs
+`pglast`). None of them need a Supabase account or network access.
