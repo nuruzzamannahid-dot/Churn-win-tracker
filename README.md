@@ -17,6 +17,8 @@ other's calls immediately.
 | `src/db.js` | Supabase/PostgREST data layer (paging, filters, writes) |
 | `build.py` | Inlines `src/db.js` into the template → `index.html` |
 | `supabase/schema.sql` | Tables, indexes, RLS policies and the `v_dashboard` view |
+| `supabase/hardening.sql` | Clears the Supabase advisor findings (security_invoker, search_path) |
+| `test_schema.py` | Parses the SQL with the real Postgres grammar (`pglast`) |
 | `supabase/import.py` | Seeds Supabase from the JSON/CSV sources |
 | `mock-supabase.js` | Miniature PostgREST used by the tests (no network) |
 | `test_db.js` | Data-layer tests (`node test_db.js`) |
