@@ -177,7 +177,8 @@
   function filterParams(f) {
     var p = [];
     if (f.reason === "Churn") p.push("hive_churn=eq.true");
-    else if (f.reason === "Inactive") p.push("hive_churn=eq.false");
+    // "Inactive" was the old name for this filter; keep it working.
+    else if (f.reason === "Active" || f.reason === "Inactive") p.push("hive_churn=eq.false");
     if (f.kam) p.push("kam=eq." + encodeURIComponent(f.kam));
     if (f.status === "__open__") p.push("outcome=neq.pending");
     else if (f.status) p.push("outcome=eq." + encodeURIComponent(f.status));

@@ -323,7 +323,7 @@
         </div>
         <div>
           <h1>Churn Win Tracker</h1>
-          <div class="sub"><b id="subCount">—</b> churned &amp; inactive merchants &middot; win-back calling campaign &middot; KAM: Ahmed Asif Rashid &amp; Nuruzzaman Nahid</div>
+          <div class="sub"><b id="subCount">—</b> Hive merchants — churn &amp; active &middot; win-back calling campaign &middot; KAM: Ahmed Asif Rashid &amp; Nuruzzaman Nahid</div>
         </div>
       </div>
       <div class="actions">
@@ -392,7 +392,7 @@
             <div class="minibar"><i id="churnBar" style="background:#EF4444"></i></div>
           </div>
           <div class="spl">
-            <div class="k">Inactive list</div>
+            <div class="k">Active list</div>
             <div class="v" id="inactiveTxt">&mdash;</div>
             <div class="minibar"><i id="inactiveBar" style="background:#F59E0B"></i></div>
           </div>
@@ -450,7 +450,7 @@
       <select class="tb" id="fReason">
         <option value="">All reasons</option>
         <option value="Churn">Churn only</option>
-        <option value="Inactive">Inactive only</option>
+        <option value="Active">Active only</option>
       </select>
       <div class="spacer"></div>
       <span class="mxnote" id="mxNote" title="Merchants with Hive order data loaded"></span>
@@ -721,7 +721,8 @@
   function filterParams(f) {
     var p = [];
     if (f.reason === "Churn") p.push("hive_churn=eq.true");
-    else if (f.reason === "Inactive") p.push("hive_churn=eq.false");
+    // "Inactive" was the old name for this filter; keep it working.
+    else if (f.reason === "Active" || f.reason === "Inactive") p.push("hive_churn=eq.false");
     if (f.kam) p.push("kam=eq." + encodeURIComponent(f.kam));
     if (f.status === "__open__") p.push("outcome=neq.pending");
     else if (f.status) p.push("outcome=eq." + encodeURIComponent(f.status));
@@ -865,11 +866,13 @@
 
   function hiveChurn(b){ return !!(b && b.hiveChurn); }
 
-  /* Hive owns the churn classification: its own check flags a merchant with no
-     order in 30+ days. The sheet's Reason column is only a starting label and
-     disagrees with Hive on 125 of the 30,507 rows, so the table, the filters and
-     the CSV all read this, never b.reason. */
-  function reasonLabel(b){ return hiveChurn(b) ? "Churn" : "Inactive"; }
+  /* Hive owns the classification. Its check flags a merchant with no order in
+     30+ days as churn; every other merchant is still ordering, i.e. ACTIVE.
+     The sheet's Reason column is only a starting label and disagrees with Hive
+     on 125 of the 30,507 rows (47 sheet-"Churn" businesses that are ordering
+     again, 78 sheet-"Inactive" ones that are on Hive's churn list), so the
+     table, the filters and the CSV all read this, never b.reason. */
+  function reasonLabel(b){ return hiveChurn(b) ? "Churn" : "Active"; }
 
   /* Only the "acting as" preference is kept locally. Call data is not cached:
      a refresh always reflects what is actually in the database. */
@@ -962,11 +965,11 @@
   function renderKPIs(){
     var t = stats(), td = todayStats();
     var kpis = [
-      { lbl:"Total merchants", val:t.total, foot:t.churn+" churn · "+t.inactive+" inactive" },
+      { lbl:"Total merchants", val:t.total, foot:t.churn+" churn · "+t.inactive+" active" },
       { lbl:"Contacted", val:t.contacted, foot:pct(t.contacted,t.total)+"% of list",
         dot:"#2563EB" },
       { lbl:"Won back", val:t.byStatus.won_back || 0, foot:"re-engaged churn" },
-      { lbl:"Activated", val:t.byStatus.activated || 0, foot:"inactive → active" },
+      { lbl:"Activated", val:t.byStatus.activated || 0, foot:"back to ordering" },
       { lbl:"Win rate", val:pct(t.won,t.contacted)+"%",
         foot:t.won+" won of "+t.contacted+" contacted", accent:true },
       { lbl:"Still pending", val:t.pending, foot:"no call logged yet" }

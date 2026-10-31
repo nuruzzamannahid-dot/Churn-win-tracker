@@ -48,7 +48,8 @@ const DB = globalThis.DB;
 
   console.log("\nfilters → query parameters");
   ok("churn filter", DB.filterParams({ reason: "Churn" }).includes("hive_churn=eq.true"));
-  ok("inactive filter", DB.filterParams({ reason: "Inactive" }).includes("hive_churn=eq.false"));
+  ok("active filter", DB.filterParams({ reason: "Active" }).includes("hive_churn=eq.false"));
+  ok("the old 'Inactive' value still filters actives", DB.filterParams({ reason: "Inactive" }).includes("hive_churn=eq.false"));
   ok("kam filter", DB.filterParams({ kam: "nahid" }).includes("kam=eq.nahid"));
   ok("open filter excludes pending", DB.filterParams({ status: "__open__" }).includes("outcome=neq.pending"));
   ok("named status filter", DB.filterParams({ status: "won_back" }).includes("outcome=eq.won_back"));
