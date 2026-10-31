@@ -113,17 +113,17 @@ async function waitFor(fn, ms = 6000, step = 60) {
 
   console.log("\nfilters");
   const fReason = d.querySelector("#fReason");
-  fReason.value = "Inactive"; fire(fReason, "change");
+  fReason.value = "Active"; fire(fReason, "change");
   await waitFor(() => d.querySelector("#pgInfo").textContent.includes("of"));
   await sleep(400);
-  ok("inactive filter is applied server-side",
+  ok("active filter is applied server-side",
      mock.requests.some((r) => r.query.includes("hive_churn=eq.false")));
-  // The Reason column follows Hive, not the sheet label: an "Inactive only"
-  // filter must never produce rows that read "Active".
-  ok("inactive rows are labelled Inactive",
-     rows().every((r) => cells(r)[6] === "Inactive"), cells(rows()[0])[6]);
-  ok("no row is ever labelled Active",
-     rows().every((r) => cells(r)[6] !== "Active"), cells(rows()[0])[6]);
+  // The Reason column follows Hive, not the sheet label. Businesses not on
+  // Hive's churn list are still ordering, so they read "Active".
+  ok("non-churn rows are labelled Active",
+     rows().every((r) => cells(r)[6] === "Active"), cells(rows()[0])[6]);
+  ok("the word Inactive never appears",
+     rows().every((r) => cells(r)[6] !== "Inactive"), cells(rows()[0])[6]);
   fReason.value = "Churn"; fire(fReason, "change");
   await sleep(400);
   ok("churn filter restored", rows().length > 0);
