@@ -149,6 +149,9 @@
       orders: r.lifetime_orders === null || r.lifetime_orders === undefined ? null : Number(r.lifetime_orders),
       days: r.active_days === null || r.active_days === undefined ? null : Number(r.active_days),
       perMonth: r.orders_per_month === null || r.orders_per_month === undefined ? null : Number(r.orders_per_month),
+      // orders in the last 30 days; null = not counted. Rows measured at 30 or
+      // fewer are deleted by a database trigger, so anything here is 31+.
+      o30: r.orders_30d === null || r.orders_30d === undefined ? null : Number(r.orders_30d),
       est: !!r.is_estimated,
       last: r.last_order_date || null,
       hiveChurn: !!r.hive_churn,
@@ -160,7 +163,7 @@
   }
 
   var COLUMNS = "id,reason,name,phone,lifetime_orders,active_days,orders_per_month," +
-                "is_estimated,last_order_date,hive_churn,kam,outcome,notes,updated_at";
+                "orders_30d,is_estimated,last_order_date,hive_churn,kam,outcome,notes,updated_at";
 
   function sortParam(key, dir) {
     var col = {

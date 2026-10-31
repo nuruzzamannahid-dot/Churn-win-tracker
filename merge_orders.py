@@ -42,6 +42,7 @@ PAGE_CAP = 500          # rows per Hive request in the puller
 ID_KEYS = ("business id", "business_id", "id")
 ORDER_KEYS = ("total orders", "lifetime orders", "orders", "order count")
 DAY_KEYS = ("distinct order days", "order days", "active days", "days")
+M30_KEYS = ("orders last 30 days", "last 30 days", "orders_30d", "30 days")
 FIRST_KEYS = ("first order date", "first")
 LAST_KEYS = ("last order date", "last")
 
@@ -124,6 +125,9 @@ def main() -> int:
                 continue
 
             days = as_int(pick(row, DAY_KEYS)) or 0
+            m30 = as_int(pick(row, M30_KEYS))
+            if m30 is not None and m30 < 0:
+                m30 = None
             first = as_date(pick(row, FIRST_KEYS))
             last = as_date(pick(row, LAST_KEYS))
             capped = orders >= PAGE_CAP and days == 0
@@ -142,6 +146,8 @@ def main() -> int:
                     cur["first"] = first
                 if cur.get("last") is None and last and not capped:
                     cur["last"] = last
+                if cur.get("m30") is None and m30 is not None:
+                    cur["m30"] = m30
                 metrics[bid] = cur
                 continue
 
@@ -149,6 +155,10 @@ def main() -> int:
                 stats["new"] += 1
             entry = dict(cur)
             entry["orders"] = orders
+            # A 30-day count is a moving window, not a lifetime total, so the
+            # newest pull always wins. Blank still never erases a known value.
+            if m30 is not None:
+                entry["m30"] = m30
             if days > 0:
                 entry["days"] = days
             elif "days" not in entry:

@@ -30,6 +30,7 @@ create table if not exists public.businesses (
   lifetime_orders  integer,                       -- NULL = not counted (never guessed)
   active_days      integer,                       -- distinct days with an order
   orders_per_month numeric(12, 2),                -- lifetime_orders / months spanned
+  orders_30d       integer,                       -- orders in the last 30 days; NULL = not counted
   is_estimated     boolean not null default false,-- rate derived from active days, not dates
   last_order_date  date,
   hive_churn       boolean not null default true, -- Hive's own 30+ day check
@@ -50,6 +51,44 @@ create table if not exists public.call_log (
   to_status   text,
   at          timestamptz not null default now()
 );
+
+-- --------------------------------------------------------------------------
+-- monthly floor — merchants under 30 orders a month are off the board
+-- --------------------------------------------------------------------------
+-- The KAMs only work accounts that still order in volume. Anything measured at
+-- 30 orders or fewer in the last 30 days is removed from the table the moment
+-- the number arrives. Removals are archived first, so a wrong call can be read
+-- back and restored; a merchant with no 30-day count is never touched.
+create table if not exists public.low_volume_removed (
+  id          text primary key,
+  name        text not null,
+  orders_30d  integer not null,
+  removed_at  timestamptz not null default now()
+);
+
+create or replace function public.drop_low_volume() returns trigger
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+begin
+  insert into public.low_volume_removed (id, name, orders_30d)
+  select id, name, orders_30d from public.businesses
+   where orders_30d is not null and orders_30d <= 30
+  on conflict (id) do update
+     set orders_30d = excluded.orders_30d,
+         removed_at = now();
+
+  delete from public.businesses
+   where orders_30d is not null and orders_30d <= 30;
+  return null;
+end $$;
+
+-- statement-level: one sweep per import batch, not one per row
+drop trigger if exists businesses_monthly_floor on public.businesses;
+create trigger businesses_monthly_floor
+  after insert or update of orders_30d on public.businesses
+  for each statement execute function public.drop_low_volume();
 
 -- --------------------------------------------------------------------------
 -- indexes — these are what make paging cheap under load
@@ -224,7 +263,7 @@ grant select on public.businesses to anon, authenticated;
 -- --------------------------------------------------------------------------
 create or replace view public.v_export
   with (security_invoker = on) as
-select id, reason, name, phone, lifetime_orders, active_days,
+select id, reason, name, phone, lifetime_orders, active_days, orders_30d,
        case when active_days is null or active_days = 0 or lifetime_orders is null
             then null
             else round(lifetime_orders::numeric / active_days, 2)

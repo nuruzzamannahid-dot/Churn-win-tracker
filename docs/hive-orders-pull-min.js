@@ -116,8 +116,16 @@
       var full = r.p.rows < 500;
       var orders = full ? r.p.rows : (r.p.total != null ? r.p.total : null);
       var dates = full ? r.p.dates : [];   // >1 page: dates would be partial, so leave blank
+      // Orders in the last 30 days. Only countable when the pull was complete
+      // (<=500 rows): otherwise dates cover page 1 only and the count would be
+      // a lie. Blank means "not counted", never zero.
+      var m30 = "";
+      if (full) {
+        var cut = Date.parse(new Date(Date.now() - 30 * 864e5).toISOString().slice(0, 10));
+        m30 = dates.filter(function (d) { return Date.parse(d) >= cut; }).length;
+      }
       return { orders: orders, first: dates[0] || "", last: dates[dates.length - 1] || "",
-               days: dates.length, matched: matched };
+               days: dates.length, m30: m30, matched: matched };
     }
     return { orders: null, first: "", last: "", days: 0, matched: false };
   }
@@ -133,11 +141,13 @@
 
   function buildCsv(db) {
     var head = ["Business ID", "Business Name", "Phone", "Total Orders",
-                "First Order Date", "Last Order Date", "Distinct Order Days"];
+                "First Order Date", "Last Order Date", "Distinct Order Days",
+                "Orders Last 30 Days"];
     var lines = [head.join(",")];
     Object.keys(db).forEach(function (k) {
       var r = db[k];
-      lines.push([r.id, r.name, r.phone, r.orders, r.first, r.last, r.days].map(esc).join(","));
+      lines.push([r.id, r.name, r.phone, r.orders, r.first, r.last, r.days,
+                  r.m30 == null ? "" : r.m30].map(esc).join(","));
     });
     return lines.join("\r\n");
   }
@@ -173,7 +183,7 @@
       var b = todo[i];
       var s = await one(b);
       db[b[0]] = { id: b[0], name: b[1], phone: b[2], orders: s.orders,
-                   first: s.first, last: s.last, days: s.days };
+                   first: s.first, last: s.last, days: s.days, m30: s.m30 };
       if (s.orders == null) blank++; else ok++;
       if ((i + 1) % 25 === 0 || i === todo.length - 1) {
         save(db);
