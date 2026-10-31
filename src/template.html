@@ -582,6 +582,12 @@
 
   function hiveChurn(b){ return !!(b && b.hiveChurn); }
 
+  /* Hive owns the churn classification: its own check flags a merchant with no
+     order in 30+ days. The sheet's Reason column is only a starting label and
+     disagrees with Hive on 125 of the 30,507 rows, so the table, the filters and
+     the CSV all read this, never b.reason. */
+  function reasonLabel(b){ return hiveChurn(b) ? "Churn" : "Inactive"; }
+
   /* Only the "acting as" preference is kept locally. Call data is not cached:
      a refresh always reflects what is actually in the database. */
   var ui = (function(){
@@ -813,7 +819,10 @@
         '</button></td>'+
       '<td class="num mx'+(b.orders===null?' zero':'')+'">'+fmtCount(b.orders)+'</td>'+
       '<td class="num avg mx">'+fmtAvg(avgPerDay(b))+'</td>'+
-      '<td><span class="pill" style="color:'+(hiveChurn(b)?"#B91C1C":"#15803d")+';background:'+(hiveChurn(b)?"#FEF2F2":"#F0FDF4")+'">'+(hiveChurn(b)?"Churn":"Active")+'</span></td>'+
+      '<td><span class="pill" title="'+(hiveChurn(b)
+          ? "Hive churn check: no order in the last 30+ days"
+          : "Not on Hive's churn list")+'" style="color:'+(hiveChurn(b)?"#B91C1C":"#B45309")+
+          ';background:'+(hiveChurn(b)?"#FEF2F2":"#FEF3C7")+'">'+reasonLabel(b)+'</span></td>'+
       '<td><select class="kam" data-kam="'+esc(b.id)+'" style="color:'+kObj.color+';border-color:'+kObj.color+'33">'+kOpts+'</select></td>'+
       '<td><select class="st" data-st="'+esc(b.id)+'" style="color:'+st.fg+';background-color:'+st.bg+'">'+sOpts+'</select></td>'+
       '<td><input class="note" data-note="'+esc(b.id)+'" value="'+esc(b.notes||"")+'" placeholder="Add a note…"></td>'+
@@ -1131,7 +1140,7 @@
         var s = statusOf(b);
         var kObj = KAMS.filter(function(x){ return x.id === kamOf(b); })[0] || KAMS[0];
         lines.push([
-          b.id, b.reason, b.name, b.phone,
+          b.id, reasonLabel(b), b.name, b.phone,
           b.orders===null ? "" : b.orders,
           b.days===null ? "" : b.days,
           fmtAvg(avgPerDay(b)),
