@@ -118,11 +118,17 @@ async function waitFor(fn, ms = 6000, step = 60) {
   await sleep(400);
   ok("inactive filter is applied server-side",
      mock.requests.some((r) => r.query.includes("hive_churn=eq.false")));
-  ok("inactive rows are shown as Active pills",
-     rows().every((r) => cells(r)[6] === "Active"), cells(rows()[0])[6]);
+  // The Reason column follows Hive, not the sheet label: an "Inactive only"
+  // filter must never produce rows that read "Active".
+  ok("inactive rows are labelled Inactive",
+     rows().every((r) => cells(r)[6] === "Inactive"), cells(rows()[0])[6]);
+  ok("no row is ever labelled Active",
+     rows().every((r) => cells(r)[6] !== "Active"), cells(rows()[0])[6]);
   fReason.value = "Churn"; fire(fReason, "change");
   await sleep(400);
   ok("churn filter restored", rows().length > 0);
+  ok("churn rows are labelled Churn",
+     rows().every((r) => cells(r)[6] === "Churn"), cells(rows()[0])[6]);
 
   const fKam = d.querySelector("#fKam");
   fKam.value = "nahid"; fire(fKam, "change");
