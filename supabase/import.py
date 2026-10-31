@@ -92,6 +92,10 @@ def main() -> int:
         days = entry.get("days")
         first, last = entry.get("first"), entry.get("last")
 
+        m30 = entry.get("m30")
+        if not isinstance(m30, int):
+            m30 = None
+
         per_month, estimated = None, False
         if orders is not None:
             months = span_months(entry)
@@ -109,6 +113,7 @@ def main() -> int:
             "active_days": "" if days is None else days,
             "orders_per_month": "" if per_month is None else per_month,
             "is_estimated": "true" if estimated else "false",
+            "orders_30d": "" if m30 is None else m30,
             "last_order_date": last or "",
             "hive_churn": "true" if bid in churn else "false",
             "kam": "ahmed" if len(rows) % 2 == 0 else "nahid",
@@ -123,8 +128,8 @@ def main() -> int:
         add(bid, "Churn", churn[bid]["name"], churn[bid]["phone"])
 
     fields = ["id", "reason", "name", "phone", "lifetime_orders", "active_days",
-              "orders_per_month", "is_estimated", "last_order_date", "hive_churn",
-              "kam", "outcome", "notes"]
+              "orders_per_month", "orders_30d", "is_estimated", "last_order_date",
+              "hive_churn", "kam", "outcome", "notes"]
     out = pathlib.Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
     with open(out, "w", newline="", encoding="utf-8") as fh:

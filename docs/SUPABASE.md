@@ -102,6 +102,35 @@ and press **Save & connect**.
 - "All / page" is capped at 1,000 rows; use **Export CSV** for the full set
   (it pages through 1,000 at a time).
 
+## The 30-orders-a-month floor
+
+Merchants doing **30 orders or fewer in the last 30 days** are off the board —
+the KAMs only work accounts that still order in volume. The rule lives in the
+database, not in the page, so the table, the KPI cards, the export and any
+future reader all agree:
+
+```
+orders_30d   -- orders in the last 30 days; NULL = not counted
+```
+
+- `orders_30d` above 30 -> stays.
+- `orders_30d` at 30 or below -> archived into `low_volume_removed`, then
+  deleted, by the `businesses_monthly_floor` trigger (statement-level,
+  **security definer**, because anon holds no DELETE grant).
+- `orders_30d` blank -> **untouched**. A merchant Hive never counted is not a
+  merchant with no orders.
+
+The number comes from the puller: `docs/hive-orders-pull-min.js` adds an
+`Orders Last 30 Days` column, filled only when the pull was complete (500 rows
+or fewer). A multi-page pull leaves it blank rather than counting page one and
+calling that a month.
+
+See what was removed:
+
+```sql
+select count(*), min(removed_at), max(removed_at) from public.low_volume_removed;
+```
+
 ## Security notes
 
 - Anyone holding the anon key can read every merchant's name, phone and call

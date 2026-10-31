@@ -80,5 +80,23 @@ for rel in FILES:
         ok("re-runnable (no bare CREATE TABLE)",
            "create table if not exists" in src.lower())
 
+        # Merchants under 30 orders a month are off the board. The purge has to
+        # run as the owner: anon holds no DELETE grant, so an importer batch
+        # would otherwise leave the low-volume rows sitting there.
+        ok("monthly floor trigger exists",
+           bool(re.search(r"create trigger businesses_monthly_floor", src, re.I)))
+        ok("monthly floor runs as the owner",
+           bool(re.search(r"function public\.drop_low_volume\(\)[\s\S]{0,200}security definer",
+                          src, re.I)),
+           "without security definer the delete is refused for anon")
+        ok("monthly floor archives before deleting",
+           bool(re.search(r"insert into public\.low_volume_removed[\s\S]*delete from public\.businesses",
+                          src, re.I)),
+           "a removed merchant must be readable afterwards")
+        ok("monthly floor only touches counted rows",
+           bool(re.search(r"delete from public\.businesses\s*\n?\s*where orders_30d is not null",
+                          src, re.I)),
+           "a blank 30-day count must never delete a merchant")
+
 print(f"\n{passed} passed, {failed} failed")
 sys.exit(1 if failed else 0)
